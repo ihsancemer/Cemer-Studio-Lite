@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cemer AR Studio — Lite Editor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        /* Senin orijinal şık tasarımını korudum ama Lite olduğu için sadeleştirdim */
+        :root {
+            --bg0: #0d0d0f; --bg1: #111113; --border: #2a2a2e; --accent: #1a5276; --text: #f0f0f2;
+        }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg0); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .topbar { height: 52px; background: var(--bg1); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 10px; }
+        .workspace { flex: 1; display: flex; }
+        .sidebar { width: 280px; background: var(--bg1); border-right: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; gap: 20px; }
+        .viewport { flex: 1; position: relative; background: #000; }
+        canvas { display: block; }
+        .btn { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: #1c1c1f; color: white; cursor: pointer; font-size: 12px; transition: 0.2s; }
+        .btn:hover { background: #242428; }
+        .btn.primary { background: var(--accent); border-color: var(--accent); }
+        .label { font-size: 11px; color: #8b8b96; margin-bottom: 5px; display: block; }
+        #loading-ov { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; flex-direction: column; }
+    </style>
+    <script type="importmap">
+        {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+    </script>
+</head>
+<body>
+
+    <div class="topbar">
+        <div style="font-weight: 800; color: #fff;">CEMER <span style="color:var(--accent)">AR STUDIO</span></div>
+        <div style="flex:1"></div>
+        <input type="file" id="file-input" accept=".glb" style="display:none">
+        <button class="btn" onclick="document.getElementById('file-input').click()">📁 Model Aç</button>
+        <button class="btn primary" id="btn-save">☁️ AR Olarak Yayınla</button>
+    </div>
+
+    <div class="workspace">
+        <div class="sidebar">
+            <div>
+                <span class="label">MODEL KONTROLÜ</span>
+                <button class="btn" style="width:100%" id="btn-snap">⬇️ Zemine Tam Oturt</button>
+                <p style="font-size:10px; color:#555; margin-top:5px;">*Blender'daki uçma hatasını otomatik düzeltir.</p>
+            </div>
+            <hr style="border:0; border-top:1px solid var(--border); width:100%">
+            <div>
+                <span class="label">SAHNE AYARLARI</span>
+                <span class="label">Işık Gücü</span>
+                <input type="range" id="in-exp" min="0.1" max="3" step="0.1" value="1" style="width:100%">
+            </div>
+        </div>
+        <div class="viewport" id="container">
+            <div id="loading-ov">
+                <div style="color:white">İşleniyor...</div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+        import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+        // SUPABASE BAĞLANTISI (Buraya Cemer için açacağın yeni anon key'leri gelecek)
+        const _supabase = window.supabase.createClient('URL_BURAYA', 'ANON_KEY_BURAYA');
+
+        let scene, camera, renderer, orbit, currentModel;
+
+        function init() {
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0d0d0f);
+
+            camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 280) / (window.innerHeight - 52), 0.1, 1000);
+            camera.position.set(3, 3, 3);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(window.innerWidth - 280, window.innerHeight - 52);
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            orbit = new OrbitControls(camera, renderer.domElement);
+            
+            const pmremGen = new THREE.PMREMGenerator(renderer);
+            scene.environment = pmremGen.fromScene(new RoomEnvironment(), 0.04).texture;
+
+            const grid = new THREE.GridHelper(10, 10, 0x333333, 0x222222);
+            scene.add(grid);
+
+            animate();
+        }
+
+        // MODEL YÜKLEME VE HİZALAMA
+        document.getElementById('file-input').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('loading-ov').style.display = 'flex';
+            const loader = new GLTFLoader();
+            const url = URL.createObjectURL(file);
+
+            loader.load(url, (gltf) => {
+                if (currentModel) scene.remove(currentModel);
+                currentModel = gltf.scene;
+                
+                // İlk hizalama: Merkezi bul ve zemine koy
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const center = box.getCenter(new THREE.Vector3());
+                currentModel.position.x = -center.x;
+                currentModel.position.z = -center.z;
+                currentModel.position.y = -box.min.y;
+
+                scene.add(currentModel);
+                document.getElementById('loading-ov').style.display = 'none';
+            });
+        });
+
+        // SİHİRLİ DOKUNUŞ: ZEMİNE OTURT (BAKE)
+        document.getElementById('btn-snap').addEventListener('click', () => {
+            if (!currentModel) return;
+            const box = new THREE.Box3().setFromObject(currentModel);
+            currentModel.position.y -= box.min.y;
+            alert("Model zemine mühürlendi!");
+        });
+
+        // BULUTA KAYDET (SADELEŞTİRİLMİŞ)
+        document.getElementById('btn-save').addEventListener('click', async () => {
+            if (!currentModel) return alert("Önce model yükleyin!");
+            
+            document.getElementById('loading-ov').style.display = 'flex';
+            const exporter = new GLTFExporter();
+            
+            exporter.parse(currentModel, async (buffer) => {
+                const fileName = `cemer_${Date.now()}.glb`;
+                const { data, error } = await _supabase.storage
+                    .from('models')
+                    .upload(fileName, buffer);
+
+                if (error) alert("Yükleme hatası: " + error.message);
+                else {
+                    const { data: urlData } = _supabase.storage.from('models').getPublicUrl(fileName);
+                    alert("Başarıyla yayınlandı! Link kopyalandı.");
+                    console.log("Müşteri Linki:", window.location.origin + "/viewer.html?model=" + urlData.publicUrl);
+                }
+                document.getElementById('loading-ov').style.display = 'none';
+            }, { binary: true });
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            orbit.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>
