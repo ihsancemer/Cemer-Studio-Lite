@@ -1,3 +1,181 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>pepperAR — Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #fafafa; --bg2: #ffffff; --bg3: #f4f4f5;
+      --border: #e4e4e7; --border2: #d4d4d8;
+      --accent: #d97706; --accent-hov: #b45309; --accent-bg: rgba(217, 119, 6, 0.08);
+      --green: #10b981; --green-bg: rgba(16, 185, 129, 0.1);
+      --text: #18181b; --text2: #52525b; --text3: #a1a1aa;
+      --red: #ef4444; --red-bg: rgba(239, 68, 68, 0.08);
+      --radius: 8px; --radius-lg: 12px; --border-w: 1px;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0a0a0a; --bg2: #121212; --bg3: #1a1a1a;
+      --border: #27272a; --border2: #3f3f46;
+      --accent: #facc15; --accent-hov: #eab308; --accent-bg: rgba(250, 204, 21, 0.1);
+      --green: #34d399; --green-bg: rgba(52, 211, 153, 0.1);
+      --text: #f4f4f5; --text2: #a1a1aa; --text3: #71717a;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; transition: background 0.3s; }
+
+    /* Background Grid */
+    body::before {
+      content: ''; position: fixed; inset: 0; z-index: 0; opacity: 0.4; pointer-events: none;
+      background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+    }
+
+    /* Sidebar */
+    .sidebar { position: fixed; top: 0; left: 0; width: 220px; height: 100vh; background: var(--bg2); border-right: var(--border-w) solid var(--border); display: flex; flex-direction: column; z-index: 10; padding-bottom: 24px; }
+    .sidebar-logo { padding: 28px 24px; border-bottom: var(--border-w) solid var(--border); font-size: 18px; font-weight: 600; }
+    .sidebar-logo span { color: var(--accent); }
+    .sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius); cursor: pointer; font-size: 13.5px; color: var(--text2); text-decoration: none; border: 1px solid transparent; transition: 0.2s; }
+    .nav-item:hover { background: var(--bg3); color: var(--text); }
+    .nav-item.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bg); }
+    .sidebar-user { padding: 16px; margin: 0 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+    .sidebar-user-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .sidebar-user-email { font-size: 11px; color: var(--text3); }
+    .sidebar-user-plan { font-size: 11px; color: var(--green); font-family: 'DM Mono', monospace; margin-top: 4px; text-transform: uppercase; }
+    .btn-signout { margin-top: 10px; padding: 8px; border: 1px solid var(--border2); border-radius: var(--radius); width: 100%; cursor: pointer; font-size: 12px; background: transparent; color: var(--text2); }
+    .btn-signout:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
+
+    /* Main Area */
+    .main { margin-left: 220px; min-height: 100vh; position: relative; z-index: 1; }
+    .topbar { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: var(--bg2); position: sticky; top: 0; z-index: 5; }
+    .content { padding: 32px; }
+
+    /* Stats */
+    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; position: relative; }
+    .stat-label { font-size: 11.5px; color: var(--text3); text-transform: uppercase; font-weight: 600; margin-bottom: 8px; }
+    .stat-value { font-size: 28px; font-weight: 500; font-family: 'DM Mono', monospace; }
+    .stat-value.teal { color: var(--accent); }
+
+    /* Plan Bar */
+    .plan-bar { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 22px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+    .progress-wrap { flex: 1; max-width: 300px; }
+    .progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 8px; }
+    .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.6s ease; }
+    .plan-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); }
+
+    /* Model Grid */
+    .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+    .model-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: 0.2s; }
+    .model-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+    .model-thumb { height: 160px; background: var(--bg3); position: relative; }
+    .model-body { padding: 16px; }
+    .model-name { font-family: 'DM Mono', monospace; font-weight: 600; margin-bottom: 12px; }
+    .model-actions { display: flex; gap: 8px; }
+    .btn-sm { flex: 1; padding: 8px; border-radius: var(--radius); font-size: 12px; cursor: pointer; border: 1px solid var(--border2); background: var(--bg); color: var(--text2); text-decoration: none; text-align: center; }
+    .btn-sm.primary { border-color: var(--accent); color: var(--accent); }
+    .btn-sm.danger:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+
+    /* Modals */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: center; justify-content: center; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: var(--bg2); border-radius: var(--radius-lg); padding: 28px; width: 100%; max-width: 400px; }
+
+    .btn-upload { background: var(--accent); color: #fff; padding: 8px 18px; border-radius: var(--radius); text-decoration: none; font-size: 14px; font-weight: 600; }
+    [data-theme="dark"] .btn-upload { color: #000; }
+
+    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg2); border: 1px solid var(--border2); padding: 12px 18px; border-radius: var(--radius); transform: translateY(100px); opacity: 0; transition: 0.3s; z-index: 999; }
+    .toast.show { transform: translateY(0); opacity: 1; }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">pepper<span>AR</span></div>
+  <nav class="sidebar-nav">
+    <a class="nav-item active" href="dashboard.html">Modellerim</a>
+    <a class="nav-item" href="upload.html">Model Yükle</a>
+  </nav>
+  <div class="sidebar-user">
+    <div class="sidebar-user-name" id="user-name">Yükleniyor...</div>
+    <div class="sidebar-user-email" id="user-email">...</div>
+    <div class="sidebar-user-plan" id="user-plan">FREE</div>
+    <button class="btn-signout" onclick="signOut()">Çıkış Yap</button>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <span style="font-weight:600">Dashboard</span>
+    <div style="display:flex; gap:12px; align-items:center">
+        <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:18px">🌓</button>
+        <a href="upload.html" class="btn-upload">+ Yeni Model</a>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">Toplam Model</div>
+        <div class="stat-value teal" id="stat-total">0</div>
+        <div style="font-size:11px; color:var(--text3)" id="stat-limit-text">/ 3 limit</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Toplam Görüntülenme</div>
+        <div class="stat-value" id="stat-views">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Bu Ay</div>
+        <div class="stat-value" id="stat-month">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Aktif Model</div>
+        <div class="stat-value" id="stat-active">0</div>
+      </div>
+    </div>
+
+    <div class="plan-bar">
+      <div style="display:flex; align-items:center; gap:12px">
+        <span class="plan-badge" id="plan-badge">FREE</span>
+        <span style="font-size:13px">Kullanım Durumu</span>
+      </div>
+      <div class="progress-wrap">
+        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600">
+            <span>Model: <span id="plan-used">0</span>/<span id="plan-max">3</span></span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="plan-progress"></div></div>
+      </div>
+      <button class="btn-sm primary" style="max-width:120px" onclick="alert('Yakında!')">Pro'ya Geç</button>
+    </div>
+
+    <div style="margin-bottom:16px; font-weight:600">
+        Modellerim <span id="model-count" style="color:var(--text3); font-family:'DM Mono'">0</span>
+    </div>
+
+    <div class="model-grid" id="model-grid">
+      <div style="padding:40px; color:var(--text3)">Yükleniyor...</div>
+    </div>
+  </div>
+</main>
+
+<div class="modal-backdrop" id="link-modal">
+    <div class="modal">
+        <h3 style="margin-bottom:8px" id="link-modal-name">Model Linki</h3>
+        <p style="font-size:12px; color:var(--text2); margin-bottom:16px; word-break:break-all" id="link-modal-url"></p>
+        <div style="display:flex; gap:10px">
+            <button class="btn-sm primary" onclick="copyModalLink()">Kopyala</button>
+            <button class="btn-sm" onclick="closeModal('link-modal')">Kapat</button>
+        </div>
+    </div>
+</div>
+
+<div class="toast" id="toast">...</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
   const _supabase = supabase.createClient(
@@ -8,126 +186,135 @@
   const BASE_URL = window.location.origin;
   let currentUser = null;
   let userProfile = null;
-  let deleteTarget = null;
-  let models = [];
 
-  // --- INIT ---
+  // --- Yardımcı Fonksiyon (Beyaz Ekran Engelleyici) ---
+  function safeSetText(id, value) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  }
+
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
-    if (!session) {
-      window.location.href = '/login.html';
-      return;
-    }
+    if (!session) { window.location.href = 'login.html'; return; }
+    
     currentUser = session.user;
     await loadProfile();
     await loadModels();
-    await loadAnalytics();
   }
 
-  // --- PROFILE ---
   async function loadProfile() {
-    const { data } = await _supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', currentUser.id)
-      .single();
-
+    const { data } = await _supabase.from('profiles').select('*').eq('id', currentUser.id).single();
     userProfile = data;
-    document.getElementById('user-name').textContent = data?.full_name || currentUser.email.split('@')[0];
-    document.getElementById('user-email').textContent = currentUser.email;
-    document.getElementById('user-plan').textContent = (data?.plan || 'free').toUpperCase();
 
+    safeSetText('user-name', data?.full_name || currentUser.email.split('@')[0]);
+    safeSetText('user-email', currentUser.email);
+    safeSetText('user-plan', (data?.plan || 'free').toUpperCase());
+    
     const badge = document.getElementById('plan-badge');
-    badge.textContent = (data?.plan || 'free').toUpperCase();
-    badge.className = 'plan-badge ' + (data?.plan || 'free');
+    if(badge) {
+        badge.textContent = (data?.plan || 'free').toUpperCase();
+        badge.style.borderColor = data?.plan === 'pro' ? 'var(--green)' : 'var(--border)';
+    }
 
     const limit = data?.model_limit || 3;
-    document.getElementById('stat-limit-text').textContent = `/ ${limit} limit`;
-    document.getElementById('plan-max').textContent = limit;
+    safeSetText('stat-limit-text', `/ ${limit} limit`);
+    safeSetText('plan-max', limit);
   }
 
-  // --- MODELS ---
   async function loadModels() {
-    const { data, error } = await _supabase
-      .from('models')
-      .select('*')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false });
+    const { data } = await _supabase.from('models').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+    const list = data || [];
+    
+    renderModels(list);
 
-    models = data || [];
-    renderModels(models);
-
-    const total = models.length;
+    const total = list.length;
     const limit = userProfile?.model_limit || 3;
-    document.getElementById('stat-total').textContent = total;
-    document.getElementById('model-count').textContent = `${total} model`;
-    document.getElementById('plan-used').textContent = total;
-    document.getElementById('plan-progress').style.width = Math.min((total / limit) * 100, 100) + '%';
+    const views = list.reduce((sum, m) => sum + (m.views || 0), 0);
+
+    safeSetText('stat-total', total);
+    safeSetText('stat-views', views);
+    safeSetText('model-count', `(${total})`);
+    safeSetText('plan-used', total);
+    
+    const progress = document.getElementById('plan-progress');
+    if(progress) progress.style.width = Math.min((total / limit) * 100, 100) + '%';
   }
 
   function renderModels(list) {
     const grid = document.getElementById('model-grid');
+    if(!grid) return;
 
     if (list.length === 0) {
-      grid.innerHTML = `<div class="empty-state">...</div>`; // Mevcut empty state kalsın
+      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:60px; border:1px dashed var(--border); border-radius:12px;">Henüz model yüklenmemiş.</div>`;
       return;
     }
 
     grid.innerHTML = list.map(m => {
-      // ÖNEMLİ: Viewer "model" parametresini ham isim olarak bekler, 
-      // dosya yolundaki "-3d" ekini viewer kendisi ekler.
       const safeName = encodeURIComponent(m.name);
       const { data: thumbData } = _supabase.storage.from('models').getPublicUrl(`${m.name}-thumb.webp`);
-      const thumbUrl = `${thumbData.publicUrl}?t=${Date.now()}`;
+      const thumbUrl = thumbData.publicUrl;
 
       return `
-      <div class="model-card fade-in">
+      <div class="model-card">
         <div class="model-thumb">
-          <img src="${thumbUrl}" alt="${m.name}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='placeholder.webp'">
-          <span class="model-thumb-label">NATIVE AR READY</span>
+          <img src="${thumbUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x160?text=Model+Hazir'">
         </div>
         <div class="model-body">
           <div class="model-name">${m.name}</div>
-          <div class="model-meta">
-            <span class="model-meta-item">👁️ ${m.views || 0} görüntü</span>
-            <span class="model-meta-item">📅 ${formatDate(m.created_at)}</span>
-          </div>
+          <div style="font-size:12px; color:var(--text3); margin-bottom:12px;">👁️ ${m.views || 0} izlenme</div>
           <div class="model-actions">
             <button class="btn-sm primary" onclick="showLink('${safeName}')">Link</button>
-            <a href="upload.html?edit=${safeName}" class="btn-sm">Düzenle</a>
-            <button class="btn-sm danger" onclick="askDelete('${safeName}')">Sil</button>
+            <button class="btn-sm danger" onclick="deleteModel('${m.id}')">Sil</button>
           </div>
         </div>
       </div>`;
     }).join('');
   }
 
-  // --- ANALYTICS ---
-  async function loadAnalytics() {
-    // Analytics fonksiyonun mevcut haliyle uyumlu, sadece veriyi çekip statlara basıyoruz.
-    // ... (Mevcut loadAnalytics kodun burada kalabilir)
-  }
-
-  // --- LINK MODAL (Sadeleştirilmiş Viewer ile Tam Uyumlu) ---
   function showLink(safeName) {
-    const name = decodeURIComponent(safeName);
-    // Viewer kodunda const modelId = params.get('model') kullandığımız için burada da 'model' olarak gönderiyoruz.
-    const url = `${BASE_URL}/viewer.html?model=${safeName}`; 
-    
-    document.getElementById('link-modal-name').textContent = name;
+    const url = `${BASE_URL}/viewer.html?model=${safeName}`;
+    document.getElementById('link-modal-name').textContent = decodeURIComponent(safeName);
     document.getElementById('link-modal-url').textContent = url;
-    document.getElementById('link-modal-open').href = url;
     document.getElementById('link-modal').classList.add('open');
   }
 
   function copyModalLink() {
     const url = document.getElementById('link-modal-url').textContent;
-    navigator.clipboard.writeText(url).then(() => showToast('AR Link kopyalandı', 'success'));
+    navigator.clipboard.writeText(url).then(() => {
+        showToast("Link kopyalandı!");
+        closeModal('link-modal');
+    });
   }
 
-  // --- DİĞER YARDIMCI FONKSİYONLAR ---
-  // askDelete, confirmDelete, closeModal, showToast, toggleTheme vb. mevcut kodlarını koruyabilirsin.
-  // ...
-  
+  async function deleteModel(id) {
+    if(!confirm("Bu modeli silmek istediğinize emin misiniz?")) return;
+    await _supabase.from('models').delete().eq('id', id);
+    loadModels();
+  }
+
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    const target = current === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', target);
+    localStorage.setItem('pepper_theme', target);
+  }
+
+  function signOut() { _supabase.auth.signOut().then(() => window.location.href = 'login.html'); }
+
+  // Init theme
+  const savedTheme = localStorage.getItem('pepper_theme') || 'light';
+  document.documentElement.setAttribute('data-theme', savedTheme);
+
   init();
 </script>
+</body>
+</html>
