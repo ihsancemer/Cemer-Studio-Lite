@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+    <style>
+        /* Sadece temel layout ve kurumsal renkler */
+        :root { --cemer-turk: #19b0c7; }
+        body { margin: 0; background: #f7f5f2; font-family: 'Poppins', sans-serif; }
+        model-viewer { width: 100vw; height: 100vh; }
+        
+        /* Özel AR Butonu (Slot) */
+        .ar-button {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: var(--cemer-turk); color: white; border: none;
+            padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+<model-viewer id="mv" 
+    ar ar-modes="webxr scene-viewer quick-look" 
+    camera-controls shadow-intensity="1" 
+    environment-image="neutral">
+    
+    <button slot="ar-button" class="ar-button">📸 AR İLE DÜNYANA YERLEŞTİR</button>
+
+    <div id="pc-overlay" style="display:none;">
+        </div>
+</model-viewer>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const modelId = params.get('id') || params.get('model');
+    const mv = document.querySelector('#mv');
+
+    // 1. SUPABASE AYARLARINI ÇEK (Exposure, Renk vb.)
+    async function loadSettings() {
+        if(!modelId) return;
+        
+        // Supabase fetch mantığın buraya gelecek
+        // mv.setAttribute('exposure', data.exposure);
+        // applyMaterials(data.materials);
+    }
+
+    // 2. MODEL YOLLARINI SET ET
+    if(modelId) {
+        const baseUrl = `https://vdqumssdodfihuovytbs.supabase.co/storage/v1/object/public/models/${modelId}-3d`;
+        mv.src = baseUrl + ".glb";
+        mv.iosSrc = baseUrl + ".usdz";
+    }
+
+    // 3. MOBİL/PC KONTROLÜ VE QR GÖSTERİMİ
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    mv.addEventListener('ar-status', (event) => {
+        if (event.detail.status === 'failed' && !isMobile) {
+            // Masaüstündeyse AR başarısız olur, QR modalını aç
+            showQRCode();
+        }
+    });
+
+    loadSettings();
+</script>
+</body>
+</html>
