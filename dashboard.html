@@ -6,6 +6,7 @@
   <title>pepperAR — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root {
       --bg: #fafafa; --bg2: #ffffff; --bg3: #f4f4f5;
@@ -28,14 +29,12 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; transition: background 0.3s; }
 
-    /* Background Grid */
     body::before {
       content: ''; position: fixed; inset: 0; z-index: 0; opacity: 0.4; pointer-events: none;
       background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
       background-size: 40px 40px;
     }
 
-    /* Sidebar */
     .sidebar { position: fixed; top: 0; left: 0; width: 220px; height: 100vh; background: var(--bg2); border-right: var(--border-w) solid var(--border); display: flex; flex-direction: column; z-index: 10; padding-bottom: 24px; }
     .sidebar-logo { padding: 28px 24px; border-bottom: var(--border-w) solid var(--border); font-size: 18px; font-weight: 600; }
     .sidebar-logo span { color: var(--accent); }
@@ -50,26 +49,22 @@
     .btn-signout { margin-top: 10px; padding: 8px; border: 1px solid var(--border2); border-radius: var(--radius); width: 100%; cursor: pointer; font-size: 12px; background: transparent; color: var(--text2); }
     .btn-signout:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
 
-    /* Main Area */
     .main { margin-left: 220px; min-height: 100vh; position: relative; z-index: 1; }
     .topbar { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: var(--bg2); position: sticky; top: 0; z-index: 5; }
     .content { padding: 32px; }
 
-    /* Stats */
     .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
-    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; position: relative; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
     .stat-label { font-size: 11.5px; color: var(--text3); text-transform: uppercase; font-weight: 600; margin-bottom: 8px; }
     .stat-value { font-size: 28px; font-weight: 500; font-family: 'DM Mono', monospace; }
     .stat-value.teal { color: var(--accent); }
 
-    /* Plan Bar */
     .plan-bar { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 22px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
     .progress-wrap { flex: 1; max-width: 300px; }
     .progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 8px; }
     .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.6s ease; }
     .plan-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); }
 
-    /* Model Grid */
     .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
     .model-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: 0.2s; }
     .model-card:hover { border-color: var(--accent); transform: translateY(-2px); }
@@ -81,14 +76,13 @@
     .btn-sm.primary { border-color: var(--accent); color: var(--accent); }
     .btn-sm.danger:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
 
-    /* Modals */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: center; justify-content: center; }
     .modal-backdrop.open { display: flex; }
-    .modal { background: var(--bg2); border-radius: var(--radius-lg); padding: 28px; width: 100%; max-width: 400px; }
+    .modal { background: var(--bg2); border-radius: var(--radius-lg); padding: 28px; width: 100%; max-width: 400px; text-align: center; }
+    #qrcode { display: flex; justify-content: center; margin: 20px 0; padding: 10px; background: white; border-radius: 8px; }
 
     .btn-upload { background: var(--accent); color: #fff; padding: 8px 18px; border-radius: var(--radius); text-decoration: none; font-size: 14px; font-weight: 600; }
     [data-theme="dark"] .btn-upload { color: #000; }
-
     .toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg2); border: 1px solid var(--border2); padding: 12px 18px; border-radius: var(--radius); transform: translateY(100px); opacity: 0; transition: 0.3s; z-index: 999; }
     .toast.show { transform: translateY(0); opacity: 1; }
   </style>
@@ -102,7 +96,7 @@
     <a class="nav-item" href="upload.html">Model Yükle</a>
   </nav>
   <div class="sidebar-user">
-    <div class="sidebar-user-name" id="user-name">Yükleniyor...</div>
+    <div class="sidebar-user-name" id="user-name">...</div>
     <div class="sidebar-user-email" id="user-email">...</div>
     <div class="sidebar-user-plan" id="user-plan">FREE</div>
     <button class="btn-signout" onclick="signOut()">Çıkış Yap</button>
@@ -126,7 +120,7 @@
         <div style="font-size:11px; color:var(--text3)" id="stat-limit-text">/ 3 limit</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Toplam Görüntülenme</div>
+        <div class="stat-label">Görüntülenme</div>
         <div class="stat-value" id="stat-views">0</div>
       </div>
       <div class="stat-card">
@@ -165,8 +159,9 @@
 
 <div class="modal-backdrop" id="link-modal">
     <div class="modal">
-        <h3 style="margin-bottom:8px" id="link-modal-name">Model Linki</h3>
-        <p style="font-size:12px; color:var(--text2); margin-bottom:16px; word-break:break-all" id="link-modal-url"></p>
+        <h3 id="link-modal-name">Model Linki</h3>
+        <div id="qrcode"></div>
+        <p style="font-size:11px; color:var(--text2); margin-bottom:16px; word-break:break-all" id="link-modal-url"></p>
         <div style="display:flex; gap:10px">
             <button class="btn-sm primary" onclick="copyModalLink()">Kopyala</button>
             <button class="btn-sm" onclick="closeModal('link-modal')">Kapat</button>
@@ -187,7 +182,6 @@
   let currentUser = null;
   let userProfile = null;
 
-  // --- Yardımcı Fonksiyon (Beyaz Ekran Engelleyici) ---
   function safeSetText(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = value;
@@ -196,7 +190,6 @@
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
-    
     currentUser = session.user;
     await loadProfile();
     await loadModels();
@@ -205,17 +198,11 @@
   async function loadProfile() {
     const { data } = await _supabase.from('profiles').select('*').eq('id', currentUser.id).single();
     userProfile = data;
-
     safeSetText('user-name', data?.full_name || currentUser.email.split('@')[0]);
     safeSetText('user-email', currentUser.email);
     safeSetText('user-plan', (data?.plan || 'free').toUpperCase());
-    
     const badge = document.getElementById('plan-badge');
-    if(badge) {
-        badge.textContent = (data?.plan || 'free').toUpperCase();
-        badge.style.borderColor = data?.plan === 'pro' ? 'var(--green)' : 'var(--border)';
-    }
-
+    if(badge) badge.textContent = (data?.plan || 'free').toUpperCase();
     const limit = data?.model_limit || 3;
     safeSetText('stat-limit-text', `/ ${limit} limit`);
     safeSetText('plan-max', limit);
@@ -224,18 +211,12 @@
   async function loadModels() {
     const { data } = await _supabase.from('models').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
     const list = data || [];
-    
     renderModels(list);
-
     const total = list.length;
     const limit = userProfile?.model_limit || 3;
-    const views = list.reduce((sum, m) => sum + (m.views || 0), 0);
-
     safeSetText('stat-total', total);
-    safeSetText('stat-views', views);
     safeSetText('model-count', `(${total})`);
     safeSetText('plan-used', total);
-    
     const progress = document.getElementById('plan-progress');
     if(progress) progress.style.width = Math.min((total / limit) * 100, 100) + '%';
   }
@@ -243,25 +224,20 @@
   function renderModels(list) {
     const grid = document.getElementById('model-grid');
     if(!grid) return;
-
     if (list.length === 0) {
-      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:60px; border:1px dashed var(--border); border-radius:12px;">Henüz model yüklenmemiş.</div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:60px; border:1px dashed var(--border); border-radius:12px;">Henüz model yok.</div>`;
       return;
     }
-
     grid.innerHTML = list.map(m => {
       const safeName = encodeURIComponent(m.name);
       const { data: thumbData } = _supabase.storage.from('models').getPublicUrl(`${m.name}-thumb.webp`);
-      const thumbUrl = thumbData.publicUrl;
-
       return `
       <div class="model-card">
         <div class="model-thumb">
-          <img src="${thumbUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x160?text=Model+Hazir'">
+          <img src="${thumbData.publicUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x160?text=Model'">
         </div>
         <div class="model-body">
           <div class="model-name">${m.name}</div>
-          <div style="font-size:12px; color:var(--text3); margin-bottom:12px;">👁️ ${m.views || 0} izlenme</div>
           <div class="model-actions">
             <button class="btn-sm primary" onclick="showLink('${safeName}')">Link</button>
             <button class="btn-sm danger" onclick="deleteModel('${m.id}')">Sil</button>
@@ -275,45 +251,27 @@
     const url = `${BASE_URL}/viewer.html?model=${safeName}`;
     document.getElementById('link-modal-name').textContent = decodeURIComponent(safeName);
     document.getElementById('link-modal-url').textContent = url;
+    const qrContainer = document.getElementById('qrcode');
+    qrContainer.innerHTML = "";
+    new QRCode(qrContainer, { text: url, width: 140, height: 140 });
     document.getElementById('link-modal').classList.add('open');
   }
 
   function copyModalLink() {
     const url = document.getElementById('link-modal-url').textContent;
-    navigator.clipboard.writeText(url).then(() => {
-        showToast("Link kopyalandı!");
-        closeModal('link-modal');
-    });
+    navigator.clipboard.writeText(url).then(() => { showToast("Kopyalandı!"); closeModal('link-modal'); });
   }
 
   async function deleteModel(id) {
-    if(!confirm("Bu modeli silmek istediğinize emin misiniz?")) return;
+    if(!confirm("Emin misiniz?")) return;
     await _supabase.from('models').delete().eq('id', id);
     loadModels();
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
-  function showToast(msg) {
-    const t = document.getElementById('toast');
-    t.textContent = msg;
-    t.classList.add('show');
-    setTimeout(() => t.classList.remove('show'), 3000);
-  }
-
-  function toggleTheme() {
-    const current = document.documentElement.getAttribute('data-theme');
-    const target = current === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', target);
-    localStorage.setItem('pepper_theme', target);
-  }
-
+  function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+  function toggleTheme() { const current = document.documentElement.getAttribute('data-theme'); const target = current === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', target); localStorage.setItem('pepper_theme', target); }
   function signOut() { _supabase.auth.signOut().then(() => window.location.href = 'login.html'); }
-
-  // Init theme
-  const savedTheme = localStorage.getItem('pepper_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-
   init();
 </script>
 </body>
