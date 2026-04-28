@@ -69,23 +69,28 @@
                 <input type="file" id="tex-input" accept="image/*" style="display:none">
                 <button class="btn" id="btn-tex" style="margin-bottom:10px">🖼️ Doku Yükle</button>
                 
-                <span class="label">Opaklık</span>
+                <span class="label">Opaklık (Şeffaflık)</span>
                 <input type="range" id="mesh-opacity" min="0" max="1" step="0.05" value="1">
+
+                <span class="label">Metalik Görünüm</span>
+                <input type="range" id="mesh-metal" min="0" max="1" step="0.05" value="0">
                 
-                <button class="btn" style="border-color:#ef4444; color:#ef4444;" id="btn-delete">🗑️ Parçayı Sil</button>
+                <button class="btn" style="border-color:#ef4444; color:#ef4444; margin-top: 5px;" id="btn-delete">🗑️ Parçayı Sil</button>
             </div>
 
             <div>
-                <span class="label">SAHNE AYARLARI</span>
-                <span class="label">Pozlama (Işık)</span>
-                <input type="range" id="in-exp" min="0.1" max="4" step="0.1" value="1">
+                <span class="label">ORTAM VE IŞIK</span>
+                <span class="label">Işık Gücü (Pozlama)</span>
+                <input type="range" id="in-exp" min="0.1" max="4" step="0.1" value="1.5">
+                
+                <span class="label">Güneş Konumu (Açı)</span>
+                <input type="range" id="in-sun" min="0" max="360" step="1" value="45">
             </div>
 
             <div style="font-size: 11px; color: #555; background: #1a1a1e; padding: 10px; border-radius: 6px; margin-top: auto;">
                 <b>Kısayollar:</b><br>
                 • Parça seçmek için üzerine tıkla.<br>
                 • Geri almak için <b>Ctrl + Z</b>.<br>
-                • Thumbnail otomatik alınır.
             </div>
         </div>
         
@@ -108,7 +113,7 @@
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtc3Nkb2RmaWh1b3Z5dGJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNzI1NDgsImV4cCI6MjA4OTc0ODU0OH0.SpKRUbrPmKQtcEDUCwthD-74heZMxTl2R9m9LXN0WQI'
         );
 
-        let scene, camera, renderer, orbit, currentModel, grid, selectionBox;
+        let scene, camera, renderer, orbit, currentModel, grid, selectionBox, sunLight;
         let selectedMesh = null;
         const history = [];
 
@@ -122,13 +127,23 @@
             renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
             renderer.setSize(window.innerWidth - 280, window.innerHeight - 52);
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.5;
             document.getElementById('container').appendChild(renderer.domElement);
 
             orbit = new OrbitControls(camera, renderer.domElement);
             orbit.enableDamping = true;
 
+            // Ortam Yansımaları (Metaller için şart)
             const pmrem = new THREE.PMREMGenerator(renderer);
             scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+            // Gerçekçi Güneş Işığı
+            sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+            sunLight.position.set(5, 8, 5);
+            scene.add(sunLight);
+            
+            const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambient);
 
             grid = new THREE.GridHelper(20, 20, 0x2a2a2e, 0x1a1a1e);
             scene.add(grid);
@@ -142,10 +157,10 @@
         }
 
         function setupLogic() {
-            // Tıklama ile Parça Seçimi
             const raycaster = new THREE.Raycaster();
             const mouse = new THREE.Vector2();
 
+            // Tıklama ile Parça Seçimi (HATA GİDERİLDİ)
             document.getElementById('container').addEventListener('pointerdown', (e) => {
                 if (!currentModel) return;
                 const rect = renderer.domElement.getBoundingClientRect();
@@ -156,9 +171,8 @@
                 const hits = raycaster.intersectObject(currentModel, true);
 
                 if (hits.length > 0) {
-                    let obj = hits[0].object;
-                    while(obj && !obj.isMesh) obj = obj.parent;
-                    if(obj) selectPart(obj);
+                    const obj = hits[0].object;
+                    if (obj.isMesh) selectPart(obj); // Sadece gerçek yüzeyleri seç
                 } else {
                     deselectPart();
                 }
@@ -170,31 +184,24 @@
                     if (history.length === 0) return;
                     const last = history.pop();
                     if (last.type === 'color') last.obj.material.color.setHex(last.val);
-                    if (last.type === 'opacity') last.obj.material.opacity = last.val;
+                    if (last.type === 'opacity') { last.obj.material.opacity = last.val; last.obj.material.transparent = last.val < 1; }
+                    if (last.type === 'metal') last.obj.material.metalness = last.val;
                     if (last.type === 'delete') last.parent.add(last.obj);
                     if (last.type === 'scale') currentModel.scale.copy(last.val);
                     if (last.type === 'rotate') currentModel.rotation.copy(last.val);
-                    if (last.type === 'tex') last.obj.material.map = last.val;
+                    if (last.type === 'tex') { last.obj.material.map = last.val; last.obj.material.needsUpdate = true; }
                     if (selectedMesh) selectionBox.setFromObject(selectedMesh);
                 }
             });
 
-            // Renk ve Opaklık
-            document.getElementById('mesh-color').addEventListener('change', (e) => {
+            // Renk Atama
+            document.getElementById('mesh-color').addEventListener('input', (e) => {
                 if(!selectedMesh) return;
                 history.push({ type: 'color', obj: selectedMesh, val: selectedMesh.material.color.getHex() });
-                selectedMesh.material.color.setHex(parseInt(e.target.value.replace('#', '0x')));
+                selectedMesh.material.color.set(e.target.value);
             });
 
-            document.getElementById('mesh-opacity').addEventListener('input', (e) => {
-                if(!selectedMesh) return;
-                history.push({ type: 'opacity', obj: selectedMesh, val: selectedMesh.material.opacity });
-                const v = parseFloat(e.target.value);
-                selectedMesh.material.transparent = v < 1;
-                selectedMesh.material.opacity = v;
-            });
-
-            // Texture Yükleme
+            // Texture (Doku) Yükleme (GLTF Standartlarına Uygun)
             document.getElementById('btn-tex').onclick = () => document.getElementById('tex-input').click();
             document.getElementById('tex-input').onchange = (e) => {
                 if(!selectedMesh || !e.target.files[0]) return;
@@ -205,12 +212,31 @@
                     loader.load(re.target.result, (tex) => {
                         history.push({ type: 'tex', obj: selectedMesh, val: selectedMesh.material.map });
                         tex.colorSpace = THREE.SRGBColorSpace;
+                        tex.flipY = false; // GLTF Modeller için dokunun ters dönmesini engeller
                         selectedMesh.material.map = tex;
                         selectedMesh.material.needsUpdate = true;
                     });
                 };
                 reader.readAsDataURL(file);
             };
+
+            // Opaklık
+            document.getElementById('mesh-opacity').addEventListener('input', (e) => {
+                if(!selectedMesh) return;
+                history.push({ type: 'opacity', obj: selectedMesh, val: selectedMesh.material.opacity });
+                const v = parseFloat(e.target.value);
+                selectedMesh.material.transparent = v < 1;
+                selectedMesh.material.opacity = v;
+                selectedMesh.material.depthWrite = v === 1; // Şeffaf objelerin arkasını göstermesi için
+            });
+
+            // Metalik Görünüm
+            document.getElementById('mesh-metal').addEventListener('input', (e) => {
+                if(!selectedMesh) return;
+                history.push({ type: 'metal', obj: selectedMesh, val: selectedMesh.material.metalness || 0 });
+                selectedMesh.material.metalness = parseFloat(e.target.value);
+                selectedMesh.material.roughness = 1.0 - (parseFloat(e.target.value) * 0.8); // Metal arttıkça pürüzsüzleşir
+            });
 
             // Silme
             document.getElementById('btn-delete').onclick = () => {
@@ -221,38 +247,38 @@
             };
 
             // Ölçek ve Döndürme
-            document.getElementById('btn-cm').onclick = () => { 
-                history.push({ type: 'scale', val: currentModel.scale.clone() });
-                currentModel.scale.multiplyScalar(0.01); 
-            };
-            document.getElementById('btn-mm').onclick = () => { 
-                history.push({ type: 'scale', val: currentModel.scale.clone() });
-                currentModel.scale.multiplyScalar(0.001); 
-            };
-            document.getElementById('btn-rotate').onclick = () => { 
-                history.push({ type: 'rotate', val: currentModel.rotation.clone() });
-                currentModel.rotation.y += Math.PI / 2; 
-            };
+            document.getElementById('btn-cm').onclick = () => { history.push({ type: 'scale', val: currentModel.scale.clone() }); currentModel.scale.multiplyScalar(0.01); };
+            document.getElementById('btn-mm').onclick = () => { history.push({ type: 'scale', val: currentModel.scale.clone() }); currentModel.scale.multiplyScalar(0.001); };
+            document.getElementById('btn-rotate').onclick = () => { history.push({ type: 'rotate', val: currentModel.rotation.clone() }); currentModel.rotation.y += Math.PI / 2; };
             document.getElementById('btn-snap').onclick = () => {
                 const box = new THREE.Box3().setFromObject(currentModel);
                 currentModel.position.y -= box.min.y;
             };
 
+            // Işık ve Güneş
             document.getElementById('in-exp').oninput = (e) => renderer.toneMappingExposure = parseFloat(e.target.value);
+            document.getElementById('in-sun').oninput = (e) => {
+                const angle = parseFloat(e.target.value) * (Math.PI / 180);
+                sunLight.position.x = Math.cos(angle) * 10;
+                sunLight.position.z = Math.sin(angle) * 10;
+            };
         }
 
         function selectPart(mesh) {
             selectedMesh = mesh;
+            // Materyali diğer parçalardan bağımsız hale getir
             if(!selectedMesh.material.isCloned) {
                 selectedMesh.material = selectedMesh.material.clone();
                 selectedMesh.material.isCloned = true;
             }
             selectionBox.setFromObject(selectedMesh);
             selectionBox.visible = true;
+            
             document.getElementById('mesh-panel').style.display = 'block';
             document.getElementById('mesh-name').innerText = mesh.name || "İsimsiz Parça";
             document.getElementById('mesh-color').value = "#" + selectedMesh.material.color.getHexString();
-            document.getElementById('mesh-opacity').value = selectedMesh.material.opacity;
+            document.getElementById('mesh-opacity').value = selectedMesh.material.opacity !== undefined ? selectedMesh.material.opacity : 1;
+            document.getElementById('mesh-metal').value = selectedMesh.material.metalness || 0;
         }
 
         function deselectPart() {
@@ -278,44 +304,58 @@
             });
         };
 
-        // --- KAYDETME (DATABASE + STORAGE) ---
+        // --- SAĞLIKLI KAYIT (DATABASE + STORAGE) ---
         document.getElementById('btn-save').onclick = async () => {
             if(!currentModel) return;
-            const name = prompt("Model İsmi:", "yeni_urun");
+            
+            // 1. Önce Oturumu Kontrol Et
+            const { data: { user }, error: authError } = await _supabase.auth.getUser();
+            if (authError || !user) {
+                alert("HATA: Güvenlik nedeniyle kayıt yapılamıyor. Lütfen giriş yapın.");
+                return window.location.href = 'login.html';
+            }
+
+            const name = prompt("Model İsmi (Boşluksuz, İngilizce karakter):", "cemer_urun");
             if(!name) return;
 
             document.getElementById('loading-ov').style.display = 'flex';
-            document.getElementById('loading-text').innerText = "KAYDEDİLİYOR...";
+            document.getElementById('loading-text').innerText = "KÜTÜPHANEYE KAYDEDİLİYOR...";
 
-            // 1. Thumbnail Al
-            grid.visible = false; selectionBox.visible = false;
-            renderer.render(scene, camera);
-            const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp")).then(r => r.blob());
-            grid.visible = true;
+            try {
+                // 2. Thumbnail Al
+                grid.visible = false; selectionBox.visible = false;
+                renderer.render(scene, camera);
+                const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp")).then(r => r.blob());
+                grid.visible = true;
 
-            // 2. GLB Export
-            const exporter = new GLTFExporter();
-            exporter.parse(currentModel, async (buffer) => {
-                const { data: { user } } = await _supabase.auth.getUser();
-                
-                // Storage Yüklemeleri
-                await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
-                await _supabase.storage.from('models').upload(`${name}-3d.glb`, buffer, { upsert: true });
+                // 3. Modeli Export Et
+                const exporter = new GLTFExporter();
+                exporter.parse(currentModel, async (buffer) => {
+                    
+                    // Storage'a Gönder
+                    await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
+                    const { error: storageErr } = await _supabase.storage.from('models').upload(`${name}-3d.glb`, buffer, { upsert: true });
+                    if(storageErr) throw storageErr;
 
-                // Database Kaydı (Dashboard'da görünmesi için bu şart)
-                const { error } = await _supabase.from('models').insert([{
-                    user_id: user.id,
-                    name: name,
-                    exposure: renderer.toneMappingExposure,
-                    shadow_intensity: 1.0
-                }]);
+                    // Database'e Kaydet (Dashboard'da Çıkması İçin)
+                    const { error: dbErr } = await _supabase.from('models').insert([{
+                        user_id: user.id,
+                        name: name,
+                        exposure: renderer.toneMappingExposure,
+                        shadow_intensity: 1.0
+                    }]);
+                    
+                    if(dbErr) throw dbErr;
 
-                if(error) alert("DB Hatası: " + error.message);
-                else alert("Başarıyla kütüphaneye eklendi!");
-                
+                    alert("🎉 Başarıyla kütüphaneye eklendi! Dashboard'dan AR linkini alabilirsiniz.");
+                    window.location.href = 'dashboard.html';
+
+                }, function(err){ console.error(err); alert("Export Hatası!"); }, { binary: true });
+
+            } catch (err) {
+                alert("Kayıt sırasında bir hata oluştu: " + err.message);
                 document.getElementById('loading-ov').style.display = 'none';
-                document.getElementById('loading-text').innerText = "YÜKLENİYOR...";
-            }, { binary: true });
+            }
         };
 
         function animate() {
