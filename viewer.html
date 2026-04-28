@@ -20,7 +20,7 @@
             box-shadow: 0 8px 20px rgba(25, 176, 199, 0.35); z-index: 10; display: none;
         }
 
-        /* Varyasyon Paneli (Alt) */
+        /* Varyasyon Paneli (Ekranın üst kısmı) */
         .variant-container {
             position: absolute; top: 20px; left: 0; width: 100%;
             display: flex; justify-content: center; gap: 10px; z-index: 20; padding: 0 20px; box-sizing: border-box; flex-wrap: wrap;
@@ -68,81 +68,86 @@
         <button slot="ar-button" class="ar-button" id="ar-trigger">📸 AR İLE DÜNYANA YERLEŞTİR</button>
     </model-viewer>
 
-   <script>
-    const params = new URLSearchParams(window.location.search);
-    const modelId = decodeURIComponent(params.get('model') || params.get('id') || "");
-    const mv = document.getElementById('mv');
-    const statusOv = document.getElementById('status-ov');
-    const errorCard = document.getElementById('error-card');
-    const spinner = document.getElementById('main-spinner');
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const modelId = decodeURIComponent(params.get('model') || params.get('id') || "");
+        const mv = document.getElementById('mv');
+        const statusOv = document.getElementById('status-ov');
+        const errorCard = document.getElementById('error-card');
+        const spinner = document.getElementById('main-spinner');
 
-    if (!modelId) {
-        showError("Geçersiz Link", "Lütfen doğru bir ürün linki kullandığınızdan emin olun.");
-    } else {
-        const baseUrl = `https://vdqumssdodfihuovytbs.supabase.co/storage/v1/object/public/models/${modelId}`;
-        
-        // 1. SADECE GLB YÜKLÜYORUZ! 
-        // Apple cihazlar AR'a basınca bu GLB'yi otomatik USDZ'ye çevirecek!
-        mv.src = `${baseUrl}-3d.glb`;
-
-        // Varyasyonları Yükle (Varsa)
-        loadVariations(`${baseUrl}-vars.json`);
-
-        mv.addEventListener('load', () => {
-            statusOv.style.display = 'none';
-            document.getElementById('ar-trigger').style.display = 'block';
-        });
-
-        mv.addEventListener('error', (e) => {
-            if (e.detail && e.detail.type === 'loadfailure') {
-                showError("Yükleme Hatası", `Model dosyası Supabase sunucusunda bulunamadı.<br><br>Aranan Dosya: <b>${modelId}-3d.glb</b>`);
-                console.error("Kritik Yükleme Hatası:", e);
-            }
-        });
-    }
-
-    async function loadVariations(url) {
-        try {
-            const response = await fetch(url);
-            if (!response.ok) return; 
+        if (!modelId) {
+            showError("Geçersiz Link", "Lütfen doğru bir ürün linki kullandığınızdan emin olun.");
+        } else {
+            // YENİ SUPABASE URL'N BURAYA EKLENDİ!
+            const baseUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/${modelId}`;
             
-            const vars = await response.json();
-            const container = document.getElementById('variant-list');
-            
-            vars.forEach((v, index) => {
-                const btn = document.createElement('button');
-                btn.className = `variant-btn ${index === 0 ? 'active' : ''}`;
-                btn.innerText = v.name;
-                btn.onclick = () => applyVariation(v.colors, btn);
-                container.appendChild(btn);
+            // SADECE GLB ATILIYOR. Apple cihazlar AR butonuna basıldığında bunu anında USDZ'ye çevirecek.
+            mv.src = `${baseUrl}-3d.glb`;
+
+            // Varyasyonları Yükle
+            loadVariations(`${baseUrl}-vars.json`);
+
+            // Yükleme Başarılı
+            mv.addEventListener('load', () => {
+                statusOv.style.display = 'none';
+                document.getElementById('ar-trigger').style.display = 'block';
             });
-        } catch (e) {
-            console.log("Varyasyon dosyası yok, standart model yükleniyor.");
+
+            // Yükleme Başarısız (Sadece kritik hatalarda)
+            mv.addEventListener('error', (e) => {
+                if (e.detail && e.detail.type === 'loadfailure') {
+                    showError("Yükleme Hatası", `Model dosyası sunucuda bulunamadı veya hasarlı.<br><br><span style="font-size:11px; color:#888;">Aranan: ${modelId}-3d.glb</span>`);
+                    console.error("Kritik Yükleme Hatası:", e);
+                }
+            });
         }
-    }
 
-    function applyVariation(colorMap, clickedBtn) {
-        document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
-        clickedBtn.classList.add('active');
-
-        const model = mv.model;
-        if (!model) return;
-
-        for (const material of model.materials) {
-            const materialName = material.name;
-            if (colorMap[materialName]) {
-                material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
+        async function loadVariations(url) {
+            try {
+                // Tarayıcı eski json'ı tutmasın diye zaman damgası eklendi
+                const response = await fetch(`${url}?t=${Date.now()}`);
+                if (!response.ok) return; 
+                
+                const vars = await response.json();
+                const container = document.getElementById('variant-list');
+                
+                vars.forEach((v, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = `variant-btn ${index === 0 ? 'active' : ''}`;
+                    btn.innerText = v.name;
+                    btn.onclick = () => applyVariation(v.colors, btn);
+                    container.appendChild(btn);
+                });
+            } catch (e) {
+                console.log("Varyasyon dosyası yok, standart model yükleniyor.");
             }
         }
-    }
 
-    function showError(title, desc) {
-        spinner.style.display = 'none';
-        document.getElementById('status-text').style.display = 'none';
-        errorCard.style.display = 'block';
-        errorCard.querySelector('h3').innerText = title;
-        document.getElementById('error-desc').innerHTML = desc;
-    }
-</script>
+        function applyVariation(colorMap, clickedBtn) {
+            // Butonların aktiflik stilini güncelle
+            document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
+            clickedBtn.classList.add('active');
+
+            const model = mv.model;
+            if (!model) return;
+
+            // Modeldeki parçaların renklerini JSON'daki renklere göre değiştir
+            for (const material of model.materials) {
+                const materialName = material.name;
+                if (colorMap[materialName]) {
+                    material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
+                }
+            }
+        }
+
+        function showError(title, desc) {
+            spinner.style.display = 'none';
+            document.getElementById('status-text').style.display = 'none';
+            errorCard.style.display = 'block';
+            errorCard.querySelector('h3').innerText = title;
+            document.getElementById('error-desc').innerHTML = desc;
+        }
+    </script>
 </body>
 </html>
