@@ -3,52 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Cemer AR Viewer — Experience</title>
+    <title>Cemer AR Studio — Ürün Deneyimi</title>
+    
+    <meta property="og:title" content="Cemer AR Deneyimi">
+    <meta property="og:description" content="Ürünü gerçek dünyada, kendi alanınızda görün.">
+    <meta name="twitter:card" content="summary_large_image">
+
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+    
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+
     <style>
-        :root { --cemer-turk: #19b0c7; --bg: #f7f5f2; }
+        :root { --cemer-turk: #19b0c7; --bg: #f7f5f2; --white: #ffffff; }
+        
         body { margin: 0; background: var(--bg); font-family: 'Outfit', sans-serif; overflow: hidden; }
         
-        model-viewer { width: 100vw; height: 100vh; background-color: var(--bg); --progress-bar-color: var(--cemer-turk); }
-
-        /* AR Butonu */
-        .ar-button {
-            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
-            background: var(--cemer-turk); color: white; border: none;
-            padding: 14px 28px; border-radius: 40px; font-weight: 600; cursor: pointer;
-            box-shadow: 0 8px 20px rgba(25, 176, 199, 0.35); z-index: 10; display: none;
+        model-viewer { 
+            width: 100vw; height: 100vh; 
+            background-color: var(--bg);
+            --progress-bar-color: var(--cemer-turk);
+            --progress-bar-height: 4px;
         }
 
-        /* Varyasyon Paneli (Ekranın üst kısmı) */
+        /* AR Butonu - Profesyonel Stil */
+        .ar-button {
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            background: var(--cemer-turk); color: white; border: none;
+            padding: 16px 32px; border-radius: 50px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 10px 25px rgba(25, 176, 199, 0.4); 
+            z-index: 10; display: none; font-size: 14px;
+            display: flex; align-items: center; gap: 10px;
+            transition: transform 0.2s, background 0.2s;
+        }
+        .ar-button:active { transform: translateX(-50%) scale(0.95); background: #1598ac; }
+
+        /* Varyasyon Paneli */
         .variant-container {
-            position: absolute; top: 20px; left: 0; width: 100%;
-            display: flex; justify-content: center; gap: 10px; z-index: 20; padding: 0 20px; box-sizing: border-box; flex-wrap: wrap;
+            position: absolute; top: 25px; left: 0; width: 100%;
+            display: flex; justify-content: center; gap: 12px; z-index: 20; 
+            padding: 0 20px; box-sizing: border-box; flex-wrap: wrap;
         }
         .variant-btn {
-            background: rgba(255, 255, 255, 0.9); border: 1px solid #ddd;
-            padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
-            cursor: pointer; transition: 0.2s; backdrop-filter: blur(5px);
+            background: rgba(255, 255, 255, 0.85); border: 1px solid rgba(0,0,0,0.05);
+            padding: 10px 20px; border-radius: 25px; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: 0.3s; backdrop-filter: blur(10px);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
-        .variant-btn:hover { background: white; border-color: var(--cemer-turk); transform: translateY(-2px); }
         .variant-btn.active { background: var(--cemer-turk); color: white; border-color: var(--cemer-turk); }
 
-        /* Yükleme ve Hata Ekranı */
-        #status-ov { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
-        .spinner { border: 4px solid rgba(25,176,199,0.1); border-left-color: var(--cemer-turk); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        /* Status Overlay */
+        #status-ov { 
+            position: fixed; inset: 0; background: var(--bg); 
+            display: flex; flex-direction: column; align-items: center; justify-content: center; 
+            z-index: 100; transition: opacity 0.5s ease;
+        }
+        .spinner { 
+            border: 4px solid rgba(25,176,199,0.1); border-left-color: var(--cemer-turk); 
+            border-radius: 50%; width: 45px; height: 45px; 
+            animation: spin 1s linear infinite; margin-bottom: 20px; 
+        }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        #error-card { display: none; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; max-width: 85%; }
+        
+        #load-bar { width: 150px; height: 4px; background: #ddd; border-radius: 2px; overflow: hidden; margin-top: 10px; }
+        #load-fill { width: 0%; height: 100%; background: var(--cemer-turk); transition: width 0.3s; }
+
+        /* Hata Kartı */
+        #error-card { 
+            display: none; background: white; padding: 30px; border-radius: 15px; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; max-width: 80%; 
+        }
+
+        /* iOS AR Logosu Gizleme (Opsiyonel) */
+        #ar-button-icon { width: 20px; height: 20px; }
     </style>
 </head>
 <body>
 
     <div id="status-ov">
         <div class="spinner" id="main-spinner"></div>
-        <div id="status-text" style="font-weight:600; color:#555;">Ürün Hazırlanıyor...</div>
+        <div id="status-text" style="font-weight:600; color:#444;">Ürün Hazırlanıyor...</div>
+        <div id="load-bar"><div id="load-fill"></div></div>
+        
         <div id="error-card">
-            <h3 style="color:#ef4444; margin-top:0;">Model Açılamadı</h3>
-            <p id="error-desc" style="font-size:13px; color:#666; line-height:1.6;"></p>
-            <button onclick="location.reload()" class="variant-btn" style="margin-top:10px">Tekrar Dene</button>
+            <h3 style="color:#ef4444; margin:0 0 10px 0;">Model Açılamadı</h3>
+            <p id="error-desc" style="font-size:14px; color:#666; line-height:1.5; margin-bottom: 20px;"></p>
+            <button onclick="location.reload()" class="variant-btn" style="background: #f0f0f0;">Tekrar Dene</button>
         </div>
     </div>
 
@@ -60,12 +99,22 @@
         ar-scale="fixed"
         camera-controls 
         touch-action="pan-y"
-        shadow-intensity="1" 
+        shadow-intensity="1.5" 
+        shadow-softness="0.8"
         environment-image="neutral"
-        exposure="1.5"
-        auto-rotate>
+        exposure="1.2"
+        auto-rotate
+        rotation-speed="0.5"
+        interpolation-decay="200"
+        loading="eager"
+        alt="Cemer 3D Ürün Modeli">
         
-        <button slot="ar-button" class="ar-button" id="ar-trigger">📸 AR İLE DÜNYANA YERLEŞTİR</button>
+        <button slot="ar-button" class="ar-button" id="ar-trigger">
+            <svg id="ar-button-icon" viewBox="0 0 24 24" fill="white"><path d="M7 11V7H11V5H7C5.9 5 5 5.9 5 7V11H7ZM17 7V11H19V7C19 5.9 18.1 5 17 5H13V7H17ZM17 17H13V19H17C18.1 19 19 18.1 19 17V13H17V17ZM7 17V13H5V17C5 18.1 5.9 19 7 19H11V17H7ZM12 8C9.79 8 8 9.79 8 12C8 14.21 9.79 16 12 16C14.21 16 16 14.21 16 12C16 9.79 14.21 8 12 8Z"/></svg>
+            GERÇEK DÜNYADA GÖR
+        </button>
+
+        <div slot="progress-bar"></div>
     </model-viewer>
 
     <script>
@@ -73,43 +122,54 @@
         const modelId = decodeURIComponent(params.get('model') || params.get('id') || "");
         const mv = document.getElementById('mv');
         const statusOv = document.getElementById('status-ov');
+        const loadFill = document.getElementById('load-fill');
         const errorCard = document.getElementById('error-card');
         const spinner = document.getElementById('main-spinner');
 
         if (!modelId) {
-            showError("Geçersiz Link", "Lütfen doğru bir ürün linki kullandığınızdan emin olun.");
+            showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullandığınızdan emin olun.");
         } else {
-            // YENİ SUPABASE URL'N BURAYA EKLENDİ!
+            // Dinamik Supabase URL
             const baseUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/${modelId}`;
             
-            // SADECE GLB ATILIYOR. Apple cihazlar AR butonuna basıldığında bunu anında USDZ'ye çevirecek.
             mv.src = `${baseUrl}-3d.glb`;
+            // iOS için otomatik USDZ jeneratörünü tetikle
+            mv.setAttribute('ios-src', ''); 
 
-            // Varyasyonları Yükle
             loadVariations(`${baseUrl}-vars.json`);
 
-            // Yükleme Başarılı
-            mv.addEventListener('load', () => {
-                statusOv.style.display = 'none';
-                document.getElementById('ar-trigger').style.display = 'block';
+            // Yükleme İlerlemesi (Progress)
+            mv.addEventListener('progress', (ev) => {
+                const progress = ev.detail.totalProgress * 100;
+                loadFill.style.width = `${progress}%`;
+                if(progress >= 100) {
+                    document.getElementById('status-text').innerText = "Görselleştiriliyor...";
+                }
             });
 
-            // Yükleme Başarısız (Sadece kritik hatalarda)
+            // Başarıyla Yüklendi
+            mv.addEventListener('load', () => {
+                statusOv.style.opacity = '0';
+                setTimeout(() => statusOv.style.display = 'none', 500);
+                document.getElementById('ar-trigger').style.display = 'flex';
+            });
+
+            // Hata Yakalama
             mv.addEventListener('error', (e) => {
                 if (e.detail && e.detail.type === 'loadfailure') {
-                    showError("Yükleme Hatası", `Model dosyası sunucuda bulunamadı veya hasarlı.<br><br><span style="font-size:11px; color:#888;">Aranan: ${modelId}-3d.glb</span>`);
-                    console.error("Kritik Yükleme Hatası:", e);
+                    showError("Ürün Bulunamadı", `Ürün dosyası sunucuda mevcut değil veya formatı desteklenmiyor.`);
                 }
             });
         }
 
         async function loadVariations(url) {
             try {
-                // Tarayıcı eski json'ı tutmasın diye zaman damgası eklendi
                 const response = await fetch(`${url}?t=${Date.now()}`);
                 if (!response.ok) return; 
                 
                 const vars = await response.json();
+                if (vars.length === 0) return;
+
                 const container = document.getElementById('variant-list');
                 
                 vars.forEach((v, index) => {
@@ -120,22 +180,22 @@
                     container.appendChild(btn);
                 });
             } catch (e) {
-                console.log("Varyasyon dosyası yok, standart model yükleniyor.");
+                console.warn("Varyasyon bilgisi yüklenemedi.");
             }
         }
 
         function applyVariation(colorMap, clickedBtn) {
-            // Butonların aktiflik stilini güncelle
             document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
             clickedBtn.classList.add('active');
 
             const model = mv.model;
             if (!model) return;
 
-            // Modeldeki parçaların renklerini JSON'daki renklere göre değiştir
+            // PBR Materyal Güncelleme
             for (const material of model.materials) {
                 const materialName = material.name;
                 if (colorMap[materialName]) {
+                    // Renk ataması (RGBA)
                     material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
                 }
             }
@@ -143,6 +203,7 @@
 
         function showError(title, desc) {
             spinner.style.display = 'none';
+            document.getElementById('load-bar').style.display = 'none';
             document.getElementById('status-text').style.display = 'none';
             errorCard.style.display = 'block';
             errorCard.querySelector('h3').innerText = title;
