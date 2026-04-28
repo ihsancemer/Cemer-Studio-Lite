@@ -2,69 +2,150 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.0.0/model-viewer.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Cemer AR Viewer — Experience</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
     <style>
-        /* Sadece temel layout ve kurumsal renkler */
-        :root { --cemer-turk: #19b0c7; }
-        body { margin: 0; background: #f7f5f2; font-family: 'Poppins', sans-serif; }
-        model-viewer { width: 100vw; height: 100vh; }
+        :root { --cemer-turk: #19b0c7; --bg: #f7f5f2; }
+        body { margin: 0; background: var(--bg); font-family: 'Outfit', sans-serif; overflow: hidden; }
         
-        /* Özel AR Butonu (Slot) */
+        model-viewer { width: 100vw; height: 100vh; background-color: var(--bg); --progress-bar-color: var(--cemer-turk); }
+
+        /* AR Butonu */
         .ar-button {
-            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
             background: var(--cemer-turk); color: white; border: none;
-            padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer;
+            padding: 14px 28px; border-radius: 40px; font-weight: 600; cursor: pointer;
+            box-shadow: 0 8px 20px rgba(25, 176, 199, 0.35); z-index: 10; display: none;
         }
+
+        /* Varyasyon Paneli (Alt) */
+        .variant-container {
+            position: absolute; top: 20px; left: 0; width: 100%;
+            display: flex; justify-content: center; gap: 10px; z-index: 20; padding: 0 20px; box-sizing: border-box; flex-wrap: wrap;
+        }
+        .variant-btn {
+            background: rgba(255, 255, 255, 0.9); border: 1px solid #ddd;
+            padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 600;
+            cursor: pointer; transition: 0.2s; backdrop-filter: blur(5px);
+        }
+        .variant-btn:hover { background: white; border-color: var(--cemer-turk); transform: translateY(-2px); }
+        .variant-btn.active { background: var(--cemer-turk); color: white; border-color: var(--cemer-turk); }
+
+        /* Yükleme ve Hata Ekranı */
+        #status-ov { position: fixed; inset: 0; background: var(--bg); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 100; }
+        .spinner { border: 4px solid rgba(25,176,199,0.1); border-left-color: var(--cemer-turk); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        #error-card { display: none; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; max-width: 85%; }
     </style>
 </head>
 <body>
 
-<model-viewer id="mv" 
-    ar 
-    ar-modes="scene-viewer webxr quick-look" 
-    ar-scale="fixed"
-    camera-controls 
-    shadow-intensity="1" 
-    environment-image="neutral">
-    
-    <button slot="ar-button" class="ar-button">📸 AR İLE DÜNYANA YERLEŞTİR</button>
-
-    <div id="pc-overlay" style="display:none;">
+    <div id="status-ov">
+        <div class="spinner" id="main-spinner"></div>
+        <div id="status-text" style="font-weight:600; color:#555;">Ürün Hazırlanıyor...</div>
+        <div id="error-card">
+            <h3 style="color:#ef4444; margin-top:0;">Model Açılamadı</h3>
+            <p id="error-desc" style="font-size:13px; color:#666; line-height:1.6;"></p>
+            <button onclick="location.reload()" class="variant-btn" style="margin-top:10px">Tekrar Dene</button>
+        </div>
     </div>
-</model-viewer>
 
-<script>
-    const params = new URLSearchParams(window.location.search);
-    const modelId = params.get('id') || params.get('model');
-    const mv = document.querySelector('#mv');
+    <div class="variant-container" id="variant-list"></div>
 
-    // 1. SUPABASE AYARLARINI ÇEK (Exposure, Renk vb.)
-    async function loadSettings() {
-        if(!modelId) return;
+    <model-viewer id="mv" 
+        ar 
+        ar-modes="scene-viewer webxr quick-look" 
+        ar-scale="fixed"
+        camera-controls 
+        touch-action="pan-y"
+        shadow-intensity="1" 
+        environment-image="neutral"
+        exposure="1.5"
+        auto-rotate>
         
-        // Supabase fetch mantığın buraya gelecek
-        // mv.setAttribute('exposure', data.exposure);
-        // applyMaterials(data.materials);
-    }
+        <button slot="ar-button" class="ar-button" id="ar-trigger">📸 AR İLE DÜNYANA YERLEŞTİR</button>
+    </model-viewer>
 
-    // 2. MODEL YOLLARINI SET ET
-    if(modelId) {
-        const baseUrl = `https://vdqumssdodfihuovytbs.supabase.co/storage/v1/object/public/models/${modelId}-3d`;
-        mv.src = baseUrl + ".glb";
-        mv.iosSrc = baseUrl + ".usdz";
-    }
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const modelId = decodeURIComponent(params.get('model') || params.get('id') || "");
+        const mv = document.getElementById('mv');
+        const statusOv = document.getElementById('status-ov');
+        const errorCard = document.getElementById('error-card');
+        const spinner = document.getElementById('main-spinner');
 
-    // 3. MOBİL/PC KONTROLÜ VE QR GÖSTERİMİ
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    mv.addEventListener('ar-status', (event) => {
-        if (event.detail.status === 'failed' && !isMobile) {
-            // Masaüstündeyse AR başarısız olur, QR modalını aç
-            if(typeof showQRCode === 'function') showQRCode();
+        if (!modelId) {
+            showError("Geçersiz Link", "Lütfen doğru bir ürün linki kullandığınızdan emin olun.");
+        } else {
+            const baseUrl = `https://vdqumssdodfihuovytbs.supabase.co/storage/v1/object/public/models/${modelId}`;
+            
+            // Dosya yollarını ata
+            mv.src = `${baseUrl}-3d.glb`;
+            mv.iosSrc = `${baseUrl}-3d.usdz`;
+
+            // Varyasyonları Yükle (JSON Kontrolü)
+            loadVariations(`${baseUrl}-vars.json`);
+
+            // Eventler
+            mv.addEventListener('load', () => {
+                statusOv.style.display = 'none';
+                document.getElementById('ar-trigger').style.display = 'block';
+            });
+
+            mv.addEventListener('error', (e) => {
+                showError("Yükleme Hatası", "3D model dosyası Supabase sunucusunda bulunamadı veya formatı hatalı.");
+                console.error(e);
+            });
         }
-    });
 
-    loadSettings();
-</script>
+        async function loadVariations(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) return; // JSON yoksa sessizce devam et
+                
+                const vars = await response.json();
+                const container = document.getElementById('variant-list');
+                
+                vars.forEach((v, index) => {
+                    const btn = document.createElement('button');
+                    btn.className = `variant-btn ${index === 0 ? 'active' : ''}`;
+                    btn.innerText = v.name;
+                    btn.onclick = () => applyVariation(v.colors, btn);
+                    container.appendChild(btn);
+                });
+            } catch (e) {
+                console.log("Varyasyon dosyası bulunamadı veya okunamadı.");
+            }
+        }
+
+        function applyVariation(colorMap, clickedBtn) {
+            // Buton aktiflik durumu
+            document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
+            clickedBtn.classList.add('active');
+
+            // Model üzerindeki materyalleri güncelle
+            const model = mv.model;
+            if (!model) return;
+
+            // Model-viewer içindeki tüm mesh'leri gez
+            for (const material of model.materials) {
+                const materialName = material.name;
+                // Eğer JSON'da bu materyal ismi için bir renk tanımlıysa uygula
+                if (colorMap[materialName]) {
+                    material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
+                }
+            }
+        }
+
+        function showError(title, desc) {
+            spinner.style.display = 'none';
+            document.getElementById('status-text').style.display = 'none';
+            errorCard.style.display = 'block';
+            errorCard.querySelector('h3').innerText = title;
+            document.getElementById('error-desc').innerText = desc;
+        }
+    </script>
 </body>
 </html>
