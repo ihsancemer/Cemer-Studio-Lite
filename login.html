@@ -41,8 +41,16 @@
         .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(25, 176, 199, 0.3); }
         .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none; }
 
+        .toggle-text { margin-top: 20px; font-size: 12px; color: #8b8b96; }
+        .toggle-text a { color: var(--accent); text-decoration: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .toggle-text a:hover { color: #fff; }
+
         #error-msg {
             color: #ef4444; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 20px; display: none; text-align: left;
+        }
+        #success-msg {
+            color: #10b981; background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2);
             padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 20px; display: none; text-align: left;
         }
     </style>
@@ -51,11 +59,12 @@
 
     <div class="login-card">
         <div class="logo">CEMER <span>AR STUDIO</span></div>
-        <div class="subtitle">Yönetim paneline erişmek için giriş yapın</div>
+        <div class="subtitle" id="form-subtitle">Yönetim paneline erişmek için giriş yapın</div>
 
         <div id="error-msg"></div>
+        <div id="success-msg"></div>
 
-        <form id="login-form">
+        <form id="auth-form">
             <div class="input-group">
                 <span class="label">E-Posta Adresi</span>
                 <input type="email" id="email" required placeholder="ornek@cemer.com.tr">
@@ -68,34 +77,59 @@
 
             <button type="submit" class="btn" id="submit-btn">Giriş Yap</button>
         </form>
+
+        <div class="toggle-text">
+            <span id="toggle-desc">Hesabınız yok mu?</span> 
+            <a id="toggle-mode">Kayıt Olun</a>
+        </div>
     </div>
 
     <script>
         // YENİ SUPABASE PROJESİ BAĞLANTISI
         const _supabase = window.supabase.createClient(
             'https://uoqojtynnarfpidrbinj.supabase.co',
-            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvcW9qdHlubmFyZnBpZHJiaW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyODkzMzksImV4cCI6MjA5Mjg2NTMzOX0.b1xE1KUYxAJT06Sy1npJPEVFUDFbzvqCHOIzBaiA3QM'
+            'BURAYA_AZ_ONCE_BULDUGUN_UZUN_ANON_KEY_GELECEK'
         );
 
-        const form = document.getElementById('login-form');
+        const form = document.getElementById('auth-form');
         const btn = document.getElementById('submit-btn');
         const errorMsg = document.getElementById('error-msg');
+        const successMsg = document.getElementById('success-msg');
+        
+        const subtitle = document.getElementById('form-subtitle');
+        const toggleModeBtn = document.getElementById('toggle-mode');
+        const toggleDesc = document.getElementById('toggle-desc');
 
-        // SAYFA YÜKLENDİĞİNDE: Eski hatalı oturumları temizle ve geçerli oturum varsa içeri al
+        let isLoginMode = true; // Varsayılan olarak giriş modu
+
+        // Eski hatalı oturumları temizle ve geçerli oturum varsa içeri al
         async function checkSession() {
-            const { data: { session }, error } = await _supabase.auth.getSession();
-            
-            if (session) {
-                // Eğer geçerli bir oturum varsa dashboard'a yönlendir
-                window.location.replace('dashboard.html');
-            } else {
-                // Eski projeden kalan çöp veriler varsa zorla temizle (Sonsuz döngüyü kırar)
-                localStorage.clear();
-            }
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) window.location.replace('dashboard.html');
+            else localStorage.clear();
         }
         checkSession();
 
-        // GİRİŞ İŞLEMİ
+        // GİRİŞ / KAYIT MODU DEĞİŞTİRİCİ
+        toggleModeBtn.addEventListener('click', () => {
+            isLoginMode = !isLoginMode;
+            errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
+            
+            if (isLoginMode) {
+                subtitle.innerText = "Yönetim paneline erişmek için giriş yapın";
+                btn.innerText = "Giriş Yap";
+                toggleDesc.innerText = "Hesabınız yok mu?";
+                toggleModeBtn.innerText = "Kayıt Olun";
+            } else {
+                subtitle.innerText = "Yeni bir hesap oluşturun";
+                btn.innerText = "Kayıt Ol";
+                toggleDesc.innerText = "Zaten hesabınız var mı?";
+                toggleModeBtn.innerText = "Giriş Yapın";
+            }
+        });
+
+        // FORM GÖNDERME (Giriş veya Kayıt)
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -103,24 +137,40 @@
             const password = document.getElementById('password').value;
 
             btn.disabled = true;
-            btn.innerText = "Giriş Yapılıyor...";
+            btn.innerText = "İşlem Yapılıyor...";
             errorMsg.style.display = 'none';
+            successMsg.style.display = 'none';
 
-            const { data, error } = await _supabase.auth.signInWithPassword({
-                email: email,
-                password: password
-            });
-
-            if (error) {
-                errorMsg.style.display = 'block';
-                errorMsg.innerText = "Hata: " + (error.message === "Invalid login credentials" ? "E-posta veya şifre hatalı." : error.message);
-                btn.disabled = false;
-                btn.innerText = "Giriş Yap";
+            if (isLoginMode) {
+                // --- GİRİŞ YAP ---
+                const { data, error } = await _supabase.auth.signInWithPassword({ email, password });
+                if (error) {
+                    showError(error.message === "Invalid login credentials" ? "E-posta veya şifre hatalı." : error.message);
+                } else {
+                    window.location.replace('dashboard.html');
+                }
             } else {
-                // Giriş başarılı
-                window.location.replace('dashboard.html');
+                // --- KAYIT OL ---
+                const { data, error } = await _supabase.auth.signUp({ email, password });
+                if (error) {
+                    showError("Kayıt Hatası: " + error.message);
+                } else {
+                    // Kayıt başarılı olduğunda
+                    successMsg.style.display = 'block';
+                    successMsg.innerText = "Kayıt başarılı! Lütfen giriş yapın.";
+                    
+                    // Modu tekrar girişe çevir
+                    setTimeout(() => toggleModeBtn.click(), 2000); 
+                }
             }
         });
+
+        function showError(msg) {
+            errorMsg.style.display = 'block';
+            errorMsg.innerText = msg;
+            btn.disabled = false;
+            btn.innerText = isLoginMode ? "Giriş Yap" : "Kayıt Ol";
+        }
     </script>
 </body>
 </html>
