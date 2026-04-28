@@ -7,21 +7,26 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
     <style>
-        /* Senin orijinal şık tasarımını korudum ama Lite olduğu için sadeleştirdim */
         :root {
             --bg0: #0d0d0f; --bg1: #111113; --border: #2a2a2e; --accent: #1a5276; --text: #f0f0f2;
         }
         body { font-family: 'Outfit', sans-serif; background: var(--bg0); color: var(--text); margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .topbar { height: 52px; background: var(--bg1); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 14px; gap: 10px; }
         .workspace { flex: 1; display: flex; }
-        .sidebar { width: 280px; background: var(--bg1); border-right: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; gap: 20px; }
-        .viewport { flex: 1; position: relative; background: #000; }
+        .sidebar { width: 280px; background: var(--bg1); border-right: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        .viewport { flex: 1; position: relative; background: #000; outline: none; }
         canvas { display: block; }
         .btn { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: #1c1c1f; color: white; cursor: pointer; font-size: 12px; transition: 0.2s; }
         .btn:hover { background: #242428; }
         .btn.primary { background: var(--accent); border-color: var(--accent); }
         .label { font-size: 11px; color: #8b8b96; margin-bottom: 5px; display: block; }
         #loading-ov { position: absolute; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; flex-direction: column; }
+        
+        /* Seçili Obje Paneli */
+        .mesh-panel { background: #151518; border: 1px solid var(--border); padding: 12px; border-radius: 8px; display: none; }
+        .mesh-title { font-size: 12px; font-weight: 600; color: #19b0c7; margin-bottom: 10px; word-break: break-all; }
+        input[type="color"] { width: 100%; height: 30px; border: none; border-radius: 4px; cursor: pointer; background: none; margin-bottom: 10px; }
+        input[type="range"] { width: 100%; margin-bottom: 10px; }
     </style>
     <script type="importmap">
         {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
@@ -34,26 +39,54 @@
         <div style="flex:1"></div>
         <input type="file" id="file-input" accept=".glb" style="display:none">
         <button class="btn" onclick="document.getElementById('file-input').click()">📁 Model Aç</button>
-        <button class="btn primary" id="btn-save">☁️ AR Olarak Yayınla</button>
+        <button class="btn primary" id="btn-save">☁️ Kütüphaneye Kaydet & Yayınla</button>
     </div>
 
     <div class="workspace">
         <div class="sidebar">
             <div>
                 <span class="label">MODEL KONTROLÜ</span>
-                <button class="btn" style="width:100%" id="btn-snap">⬇️ Zemine Tam Oturt</button>
-                <p style="font-size:10px; color:#555; margin-top:5px;">*Blender'daki uçma hatasını otomatik düzeltir.</p>
+                <button class="btn" style="width:100%; margin-bottom: 5px;" id="btn-snap">⬇️ Zemine Tam Oturt</button>
+                <button class="btn" style="width:100%; margin-bottom: 5px;" id="btn-rotate">🔄 90° Döndür</button>
             </div>
+            
+            <div>
+                <span class="label">ÖLÇEK DÜZELTME (Gerçek Boyut İçin)</span>
+                <div style="display: flex; gap: 5px;">
+                    <button class="btn" style="flex:1" id="btn-cm">CM ➔ M</button>
+                    <button class="btn" style="flex:1" id="btn-mm">MM ➔ M</button>
+                </div>
+            </div>
+
             <hr style="border:0; border-top:1px solid var(--border); width:100%">
+            
+            <div id="mesh-panel" class="mesh-panel">
+                <div class="label">SEÇİLİ PARÇA</div>
+                <div id="mesh-name" class="mesh-title">-</div>
+                
+                <span class="label">Renk</span>
+                <input type="color" id="mesh-color">
+                
+                <span class="label">Opaklık</span>
+                <input type="range" id="mesh-opacity" min="0" max="1" step="0.05" value="1">
+                
+                <button class="btn" style="width:100%; border-color:#e74c3c; color:#e74c3c;" id="btn-delete">🗑️ Parçayı Sil</button>
+            </div>
+
             <div>
                 <span class="label">SAHNE AYARLARI</span>
                 <span class="label">Işık Gücü</span>
                 <input type="range" id="in-exp" min="0.1" max="3" step="0.1" value="1" style="width:100%">
             </div>
+            
+            <div style="font-size: 10px; color: #555; margin-top: auto;">
+                İpucu: Geri almak için Ctrl + Z<br>Parça seçmek için modele tıklayın.
+            </div>
         </div>
-        <div class="viewport" id="container">
+        
+        <div class="viewport" id="container" tabindex="0">
             <div id="loading-ov">
-                <div style="color:white">İşleniyor...</div>
+                <div style="color:white" id="loading-text">İşleniyor...</div>
             </div>
         </div>
     </div>
@@ -65,10 +98,17 @@
         import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 
-        // SUPABASE BAĞLANTISI (Buraya Cemer için açacağın yeni anon key'leri gelecek)
+        // SUPABASE BAĞLANTISI
         const _supabase = window.supabase.createClient('URL_BURAYA', 'ANON_KEY_BURAYA');
 
-        let scene, camera, renderer, orbit, currentModel;
+        let scene, camera, renderer, orbit, currentModel, grid;
+        let selectedMesh = null;
+        let selectionBox = null;
+        const historyStack = [];
+
+        // Raycaster (Tıklama ile seçim için)
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
 
         function init() {
             scene = new THREE.Scene();
@@ -87,26 +127,165 @@
             const pmremGen = new THREE.PMREMGenerator(renderer);
             scene.environment = pmremGen.fromScene(new RoomEnvironment(), 0.04).texture;
 
-            const grid = new THREE.GridHelper(10, 10, 0x333333, 0x222222);
+            grid = new THREE.GridHelper(10, 10, 0x333333, 0x222222);
             scene.add(grid);
 
+            // Seçim kutusu (Highlight)
+            selectionBox = new THREE.BoxHelper(new THREE.Mesh(), 0x19b0c7);
+            selectionBox.visible = false;
+            scene.add(selectionBox);
+
+            setupEvents();
             animate();
         }
 
-        // MODEL YÜKLEME VE HİZALAMA
+        // --- OLAY DİNLEYİCİLERİ ---
+        function setupEvents() {
+            // Fare Tıklaması (Parça Seçimi)
+            document.getElementById('container').addEventListener('pointerdown', (e) => {
+                if (!currentModel) return;
+                const rect = renderer.domElement.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+                const intersects = raycaster.intersectObject(currentModel, true);
+
+                if (intersects.length > 0) {
+                    selectMesh(intersects[0].object);
+                } else {
+                    deselectMesh();
+                }
+            });
+
+            // Geri Alma (Ctrl+Z)
+            window.addEventListener('keydown', (e) => {
+                if (e.ctrlKey && e.key === 'z') undo();
+            });
+
+            // Materyal Renk Değişimi
+            document.getElementById('mesh-color').addEventListener('input', (e) => {
+                if (!selectedMesh) return;
+                saveHistory({ type: 'color', mesh: selectedMesh, oldColor: selectedMesh.material.color.getHex() });
+                selectedMesh.material.color.setHex(parseInt(e.target.value.replace('#', '0x')));
+            });
+
+            // Materyal Opaklık Değişimi
+            document.getElementById('mesh-opacity').addEventListener('input', (e) => {
+                if (!selectedMesh) return;
+                const val = parseFloat(e.target.value);
+                saveHistory({ 
+                    type: 'opacity', 
+                    mesh: selectedMesh, 
+                    oldOpacity: selectedMesh.material.opacity, 
+                    oldTrans: selectedMesh.material.transparent 
+                });
+                selectedMesh.material.transparent = val < 1;
+                selectedMesh.material.opacity = val;
+            });
+
+            // Parça Silme
+            document.getElementById('btn-delete').addEventListener('click', () => {
+                if (!selectedMesh) return;
+                saveHistory({ type: 'delete', mesh: selectedMesh, parent: selectedMesh.parent });
+                selectedMesh.removeFromParent();
+                deselectMesh();
+            });
+
+            // Ölçekleme ve Döndürme
+            document.getElementById('btn-cm').addEventListener('click', () => applyTransform('scale', 0.01));
+            document.getElementById('btn-mm').addEventListener('click', () => applyTransform('scale', 0.001));
+            document.getElementById('btn-rotate').addEventListener('click', () => applyTransform('rotate', Math.PI / 2));
+            
+            // Işık
+            document.getElementById('in-exp').addEventListener('input', (e) => {
+                renderer.toneMappingExposure = parseFloat(e.target.value);
+            });
+        }
+
+        // --- SEÇİM VE MATERYAL İŞLEMLERİ ---
+        function selectMesh(mesh) {
+            if (!mesh.isMesh) return;
+            selectedMesh = mesh;
+
+            // Materyal kopyalama (Aynı materyali kullanan diğer parçaların etkilenmemesi için)
+            if (!selectedMesh.material.isCloned) {
+                selectedMesh.material = selectedMesh.material.clone();
+                selectedMesh.material.isCloned = true;
+            }
+
+            // Seçim kutusunu güncelle
+            selectionBox.setFromObject(selectedMesh);
+            selectionBox.visible = true;
+
+            // UI Güncelle
+            document.getElementById('mesh-panel').style.display = 'block';
+            document.getElementById('mesh-name').textContent = mesh.name || 'İsimsiz Parça';
+            document.getElementById('mesh-color').value = '#' + selectedMesh.material.color.getHexString();
+            document.getElementById('mesh-opacity').value = selectedMesh.material.opacity;
+        }
+
+        function deselectMesh() {
+            selectedMesh = null;
+            selectionBox.visible = false;
+            document.getElementById('mesh-panel').style.display = 'none';
+        }
+
+        // --- DÖNÜŞÜMLER VE GERİ ALMA (UNDO) ---
+        function applyTransform(type, value) {
+            if (!currentModel) return;
+            if (type === 'scale') {
+                saveHistory({ type: 'scale', oldScale: currentModel.scale.clone() });
+                currentModel.scale.multiplyScalar(value);
+            } else if (type === 'rotate') {
+                saveHistory({ type: 'rotate', oldRot: currentModel.rotation.clone() });
+                currentModel.rotation.y += value;
+            }
+            // İşlem sonrası seçim kutusunu güncelle
+            if(selectedMesh) selectionBox.setFromObject(selectedMesh);
+        }
+
+        function saveHistory(action) {
+            historyStack.push(action);
+            if (historyStack.length > 30) historyStack.shift(); // Max 30 işlem tut
+        }
+
+        function undo() {
+            if (historyStack.length === 0) return;
+            const action = historyStack.pop();
+
+            switch(action.type) {
+                case 'color': action.mesh.material.color.setHex(action.oldColor); break;
+                case 'opacity': 
+                    action.mesh.material.opacity = action.oldOpacity; 
+                    action.mesh.material.transparent = action.oldTrans; 
+                    break;
+                case 'delete': action.parent.add(action.mesh); break;
+                case 'scale': currentModel.scale.copy(action.oldScale); break;
+                case 'rotate': currentModel.rotation.copy(action.oldRot); break;
+            }
+            
+            // Eğer o an bir şey seçiliyse kutuyu güncelle
+            if(selectedMesh && action.mesh === selectedMesh) selectionBox.setFromObject(selectedMesh);
+        }
+
+        // --- MODEL YÜKLEME ---
         document.getElementById('file-input').addEventListener('change', async (e) => {
             const file = e.target.files[0];
             if (!file) return;
 
             document.getElementById('loading-ov').style.display = 'flex';
+            document.getElementById('loading-text').textContent = "Model Yükleniyor...";
             const loader = new GLTFLoader();
             const url = URL.createObjectURL(file);
 
             loader.load(url, (gltf) => {
                 if (currentModel) scene.remove(currentModel);
                 currentModel = gltf.scene;
+                deselectMesh();
+                historyStack.length = 0; // Geçmişi temizle
                 
-                // İlk hizalama: Merkezi bul ve zemine koy
+                // Zemine Oturt
                 const box = new THREE.Box3().setFromObject(currentModel);
                 const center = box.getCenter(new THREE.Vector3());
                 currentModel.position.x = -center.x;
@@ -118,40 +297,73 @@
             });
         });
 
-        // SİHİRLİ DOKUNUŞ: ZEMİNE OTURT (BAKE)
         document.getElementById('btn-snap').addEventListener('click', () => {
             if (!currentModel) return;
+            saveHistory({ type: 'position', oldPos: currentModel.position.clone() });
             const box = new THREE.Box3().setFromObject(currentModel);
             currentModel.position.y -= box.min.y;
-            alert("Model zemine mühürlendi!");
         });
 
-        // BULUTA KAYDET (SADELEŞTİRİLMİŞ)
+        // --- THUMBNAIL ALMA & BULUTA KAYDETME ---
+        function dataURItoBlob(dataURI) {
+            const byteString = atob(dataURI.split(',')[1]);
+            const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) ia[i] = byteString.charCodeAt(i);
+            return new Blob([ab], {type: mimeString});
+        }
+
         document.getElementById('btn-save').addEventListener('click', async () => {
             if (!currentModel) return alert("Önce model yükleyin!");
             
-            document.getElementById('loading-ov').style.display = 'flex';
-            const exporter = new GLTFExporter();
-            
-            exporter.parse(currentModel, async (buffer) => {
-                const fileName = `cemer_${Date.now()}.glb`;
-                const { data, error } = await _supabase.storage
-                    .from('models')
-                    .upload(fileName, buffer);
+            const modelName = prompt("Model için bir isim girin (Boşluk kullanmayın):", "yeni_model");
+            if (!modelName) return; // İptal edildi
 
-                if (error) alert("Yükleme hatası: " + error.message);
-                else {
-                    const { data: urlData } = _supabase.storage.from('models').getPublicUrl(fileName);
-                    alert("Başarıyla yayınlandı! Link kopyalandı.");
-                    console.log("Müşteri Linki:", window.location.origin + "/viewer.html?model=" + urlData.publicUrl);
+            document.getElementById('loading-ov').style.display = 'flex';
+            document.getElementById('loading-text').textContent = "Thumbnail Alınıyor & Kaydediliyor...";
+
+            // 1. Ekran Görüntüsü Al (Yardımcı çizgileri gizle)
+            grid.visible = false;
+            selectionBox.visible = false;
+            renderer.render(scene, camera); // Son bir kare çizdir
+            const thumbDataUrl = renderer.domElement.toDataURL("image/webp");
+            const thumbBlob = dataURItoBlob(thumbDataUrl);
+            
+            // Çizgileri geri getir
+            grid.visible = true;
+            if(selectedMesh) selectionBox.visible = true;
+
+            // 2. GLB Olarak Export Et
+            const exporter = new GLTFExporter();
+            exporter.parse(currentModel, async (buffer) => {
+                
+                try {
+                    // Supabase'e Thumbnail Yükle
+                    await _supabase.storage.from('models').upload(`${modelName}-thumb.webp`, thumbBlob, { upsert: true });
+                    
+                    // Supabase'e GLB Yükle
+                    const { data, error } = await _supabase.storage.from('models').upload(`${modelName}-3d.glb`, buffer, { upsert: true });
+
+                    if (error) throw error;
+
+                    alert("Başarıyla kütüphaneye kaydedildi!");
+                    // İşlem sonrası dashboard'a yönlendirebilirsin:
+                    // window.location.href = "dashboard.html";
+                    
+                } catch (err) {
+                    alert("Yükleme hatası: " + err.message);
+                } finally {
+                    document.getElementById('loading-ov').style.display = 'none';
                 }
-                document.getElementById('loading-ov').style.display = 'none';
+
             }, { binary: true });
         });
 
         function animate() {
             requestAnimationFrame(animate);
             orbit.update();
+            if (selectionBox && selectedMesh) selectionBox.update(); // Obje dönerse seçim kutusu da dönsün
             renderer.render(scene, camera);
         }
 
