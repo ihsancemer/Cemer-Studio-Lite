@@ -50,7 +50,6 @@
                 <input type="text" id="var-name" placeholder="Varyasyon Adı (Örn: Kırmızı Konsept)">
                 <button class="btn" id="btn-add-var">➕ Geçerli Renkleri Ekle</button>
                 <div class="var-list" id="var-list"></div>
-                <p style="font-size: 9px; color: #666; margin-top: 5px;">*Modeli kaydettiğinizde bu varyasyonlar da veritabanına JSON olarak işlenir.</p>
             </div>
 
             <div>
@@ -121,7 +120,7 @@
         let scene, camera, renderer, orbit, currentModel, grid, selectionBox, sunLight;
         let selectedMesh = null;
         const history = [];
-        let variations = []; // Varyasyonları tutacağımız dizi
+        let variations = [];
 
         function init() {
             scene = new THREE.Scene();
@@ -179,7 +178,6 @@
                 }
             });
 
-            // Geri Alma (Ctrl+Z)
             window.addEventListener('keydown', (e) => {
                 if (e.ctrlKey && e.key === 'z') {
                     if (history.length === 0) return;
@@ -195,7 +193,6 @@
                 }
             });
 
-            // Materyal İşlemleri
             document.getElementById('mesh-color').addEventListener('input', (e) => {
                 if(!selectedMesh) return;
                 history.push({ type: 'color', obj: selectedMesh, val: selectedMesh.material.color.getHex() });
@@ -258,7 +255,6 @@
                 sunLight.position.z = Math.sin(angle) * 10;
             };
 
-            // VARYASYON EKLEME MANTIĞI
             document.getElementById('btn-add-var').onclick = () => {
                 if(!currentModel) return alert("Önce model yükleyin.");
                 const vName = document.getElementById('var-name').value || `Varyasyon ${variations.length + 1}`;
@@ -266,7 +262,6 @@
                 const colorData = {};
                 currentModel.traverse((child) => {
                     if (child.isMesh && child.material && child.material.color) {
-                        // Objelerin isimlerini veya benzersiz UUID'lerini anahtar olarak kullan
                         const key = child.name || child.uuid;
                         colorData[key] = "#" + child.material.color.getHexString();
                     }
@@ -280,10 +275,8 @@
 
         function renderVarList() {
             const listEl = document.getElementById('var-list');
-            listEl.innerHTML = variations.map((v, i) => `
-                <div class="var-item">
-                    <b>${v.name}</b> (${Object.keys(v.colors).length} parça)
-                </div>
+            listEl.innerHTML = variations.map((v) => `
+                <div class="var-item"><b>${v.name}</b> (${Object.keys(v.colors).length} parça)</div>
             `).join('');
         }
 
@@ -317,7 +310,7 @@
             loader.load(URL.createObjectURL(file), (gltf) => {
                 if(currentModel) scene.remove(currentModel);
                 currentModel = gltf.scene;
-                variations = []; renderVarList(); // Yeni modelde varyasyonları sıfırla
+                variations = []; renderVarList();
                 history.length = 0;
                 
                 const box = new THREE.Box3().setFromObject(currentModel);
@@ -328,60 +321,60 @@
             });
         };
 
-        // GÜVENLİ THUMBNAIL YAKALAYICI (Promise tabanlı)
-        const getThumbnailBlob = () => {
-            return new Promise((resolve) => {
-                grid.visible = false; 
-                selectionBox.visible = false;
-                renderer.render(scene, camera);
-                renderer.domElement.toBlob((blob) => {
-                    grid.visible = true;
-                    if(selectedMesh) selectionBox.visible = true;
-                    resolve(blob);
-                }, 'image/webp', 0.8);
-            });
+        // EKRAN GÖRÜNTÜSÜ ALICI DÜZELTİLDİ (Boş siyah ekran çıkmaması için senkronize edildi)
+        const getThumbnailBlob = async () => {
+            grid.visible = false; 
+            if(selectionBox) selectionBox.visible = false;
+            
+            renderer.render(scene, camera);
+            const dataUrl = renderer.domElement.toDataURL("image/webp", 0.8);
+            
+            grid.visible = true;
+            if(selectedMesh) selectionBox.visible = true;
+            
+            return await fetch(dataUrl).then(r => r.blob());
         };
 
-        // --- GÜÇLENDİRİLMİŞ KAYIT İŞLEMİ (Try/Catch) ---
         document.getElementById('btn-save').onclick = async () => {
             if(!currentModel) return alert("Kaydedilecek bir model yok!");
             
             try {
-                // 1. Oturum Kontrolü
                 const { data: { user }, error: authError } = await _supabase.auth.getUser();
-                if (authError || !user) {
-                    alert("Kayıt başarısız! Lütfen önce sisteme giriş yapın. (Oturumunuz zaman aşımına uğramış olabilir)");
-                    return window.location.href = 'login.html';
-                }
+                if (authError || !user) return alert("Lütfen önce sisteme giriş yapın.");
 
-                const name = prompt("Model İsmi (Boşluksuz ve Türkçe karaktersiz):", "cemer_urun");
-                if(!name) return;
+                // Boşluklar alt çizgiye çevrilir (URL'de patlamaması için)
+                let nameRaw = prompt("Model İsmi (Boşluksuz, İngilizce karakter):", "cemer_urun");
+                if(!nameRaw) return;
+                const name = nameRaw.trim().replace(/\s+/g, '_').toLowerCase();
 
                 document.getElementById('loading-ov').style.display = 'flex';
                 document.getElementById('loading-text').innerText = "KAYDEDİLİYOR...";
 
-                // 2. Thumbnail Yakala
                 const thumbBlob = await getThumbnailBlob();
 
-                // 3. GLTF Export İşlemi
                 const exporter = new GLTFExporter();
                 exporter.parse(currentModel, async (buffer) => {
                     try {
-                        // Modeli ve Thumbnail'i Yükle
-                        const p1 = _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
-                        const p2 = _supabase.storage.from('models').upload(`${name}-3d.glb`, buffer, { upsert: true });
+                        // GÜVENLİK VE GÖRÜNÜRLÜK İÇİN CONTENT-TYPE EKLENDİ!
+                        const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
+
+                        const p1 = _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { 
+                            upsert: true, contentType: 'image/webp' // <-- KRİTİK EKSİK BUYDU
+                        });
+                        const p2 = _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { 
+                            upsert: true, contentType: 'model/gltf-binary' // <-- KRİTİK EKSİK BUYDU
+                        });
                         
-                        // Eğer Varyasyon varsa JSON dosyası olarak yanına yükle
                         let p3 = Promise.resolve();
                         if(variations.length > 0) {
                             const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
-                            p3 = _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true });
+                            p3 = _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { 
+                                upsert: true, contentType: 'application/json' 
+                            });
                         }
 
-                        // Tüm dosyaların yüklenmesini bekle
                         await Promise.all([p1, p2, p3]);
 
-                        // Veritabanına (Dashboard) Kaydet
                         const { error: dbErr } = await _supabase.from('models').insert([{
                             user_id: user.id,
                             name: name,
@@ -389,25 +382,22 @@
                             shadow_intensity: 1.0
                         }]);
                         
-                        if(dbErr) throw new Error("Veritabanına yazılamadı: " + dbErr.message);
+                        if(dbErr) throw new Error("Veritabanı hatası: " + dbErr.message);
 
                         alert("🎉 Başarıyla kütüphaneye eklendi!");
                         window.location.href = 'dashboard.html';
 
                     } catch (uploadError) {
-                        console.error(uploadError);
-                        alert("Storage Yükleme Hatası: " + uploadError.message);
+                        alert("Yükleme Hatası: " + uploadError.message);
                         document.getElementById('loading-ov').style.display = 'none';
                     }
 
                 }, function(exportError){ 
-                    console.error(exportError); 
-                    alert("Model Dönüştürme Hatası: Modelde desteklenmeyen bir parça var.");
+                    alert("Model Dönüştürme Hatası.");
                     document.getElementById('loading-ov').style.display = 'none';
                 }, { binary: true });
 
             } catch (generalError) {
-                console.error(generalError);
                 alert("Beklenmeyen Hata: " + generalError.message);
                 document.getElementById('loading-ov').style.display = 'none';
             }
