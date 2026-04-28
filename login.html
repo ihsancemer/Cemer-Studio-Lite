@@ -1,188 +1,126 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8">
-  <title>pepperAR — Giriş</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
-  <style>
-    :root {
-      --bg: #fafafa; --bg2: #ffffff; --bg3: #f4f4f5;
-      --border: #e4e4e7; --border2: #d4d4d8;
-      --accent: #d97706; --accent-hov: #b45309; --accent-bg: rgba(217, 119, 6, 0.08);
-      --text: #18181b; --text2: #52525b; --text3: #a1a1aa;
-      --red: #ef4444; --red-bg: rgba(239, 68, 68, 0.08);
-      --radius: 8px; --radius-lg: 12px; --border-w: 1px;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cemer AR Studio — Giriş</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+    <style>
+        :root { --bg0: #0d0d0f; --bg1: #111113; --border: #2a2a2e; --accent: #19b0c7; --text: #f0f0f2; }
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Outfit', sans-serif; background: var(--bg0); color: var(--text); 
+            margin: 0; display: flex; align-items: center; justify-content: center; height: 100vh;
+            background-image: radial-gradient(circle at 50% 0%, #1a1a1e 0%, transparent 70%);
+        }
+        
+        .login-card {
+            background: var(--bg1); border: 1px solid var(--border); padding: 40px;
+            border-radius: 12px; width: 100%; max-width: 400px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.4); text-align: center;
+        }
 
-    [data-theme="dark"] {
-      --bg: #0a0a0a; --bg2: #121212; --bg3: #1a1a1a;
-      --border: #27272a; --border2: #3f3f46;
-      --accent: #facc15; --accent-hov: #eab308; --accent-bg: rgba(250, 204, 21, 0.1);
-      --text: #f4f4f5; --text2: #a1a1aa; --text3: #71717a;
-    }
+        .logo { font-weight: 800; font-size: 24px; margin-bottom: 8px; letter-spacing: 1px; }
+        .logo span { color: var(--accent); }
+        .subtitle { font-size: 13px; color: #8b8b96; margin-bottom: 30px; }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+        .input-group { text-align: left; margin-bottom: 20px; }
+        .label { font-size: 11px; color: #8b8b96; margin-bottom: 6px; display: block; font-weight: 600; text-transform: uppercase; }
+        input[type="email"], input[type="password"] {
+            width: 100%; padding: 12px; border-radius: 6px; border: 1px solid var(--border);
+            background: #0d0d0f; color: white; font-family: 'Outfit', sans-serif; font-size: 14px; transition: 0.2s;
+        }
+        input:focus { outline: none; border-color: var(--accent); }
 
-    body {
-      font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text);
-      min-height: 100vh; display: flex; align-items: center; justify-content: center;
-      transition: background 0.3s; position: relative;
-    }
+        .btn {
+            width: 100%; padding: 14px; border-radius: 6px; border: none;
+            background: var(--accent); color: #000; font-weight: 700; font-family: 'Outfit', sans-serif;
+            font-size: 14px; cursor: pointer; transition: 0.2s; margin-top: 10px;
+        }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(25, 176, 199, 0.3); }
+        .btn:disabled { opacity: 0.7; cursor: not-allowed; transform: none; box-shadow: none; }
 
-    /* Grid Pattern */
-    body::before {
-      content: ''; position: fixed; inset: 0;
-      background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
-      background-size: 40px 40px; opacity: 0.4; pointer-events: none;
-    }
-
-    .card {
-      background: var(--bg2); border: var(--border-w) solid var(--border);
-      border-radius: var(--radius-lg); padding: 40px; width: 100%; max-width: 400px;
-      z-index: 1; box-shadow: 0 10px 30px rgba(0,0,0,0.03);
-    }
-
-    .logo { font-size: 24px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.5px; text-align: center; }
-    .logo span { color: var(--accent); }
-    .subtitle { color: var(--text2); font-size: 14px; margin-bottom: 32px; text-align: center; }
-
-    .tabs { display: flex; gap: 4px; margin-bottom: 24px; background: var(--bg3); padding: 4px; border-radius: var(--radius); border: var(--border-w) solid var(--border); }
-    .tab { flex: 1; padding: 8px; text-align: center; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text2); transition: 0.2s; }
-    .tab.active { background: var(--bg2); border: 1px solid var(--border); color: var(--text); }
-
-    input {
-      width: 100%; background: var(--bg); border: var(--border-w) solid var(--border2);
-      border-radius: var(--radius); padding: 12px 16px; color: var(--text);
-      font-size: 14px; margin-bottom: 12px; outline: none; transition: 0.2s;
-    }
-    input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-bg); }
-
-    button {
-      width: 100%; background: var(--accent); color: #fff; border: none;
-      border-radius: var(--radius); padding: 13px; font-size: 14px; font-weight: 600;
-      cursor: pointer; margin-bottom: 12px; transition: 0.2s;
-    }
-    button:hover { background: var(--accent-hov); transform: translateY(-1px); }
-    button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
-    [data-theme="dark"] button { color: #000; }
-
-    button.secondary { background: transparent; border: var(--border-w) solid var(--border2); color: var(--text2); }
-    button.secondary:hover { background: var(--bg3); color: var(--text); }
-
-    .divider { text-align: center; color: var(--text3); font-size: 12px; margin: 16px 0; text-transform: uppercase; letter-spacing: 1px; }
-
-    .error { 
-      color: var(--red); font-size: 13px; margin-bottom: 16px; display: none;
-      background: var(--red-bg); padding: 12px; border-radius: var(--radius);
-      border: 1px solid rgba(239, 68, 68, 0.2); 
-    }
-  </style>
+        #error-msg {
+            color: #ef4444; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2);
+            padding: 10px; border-radius: 6px; font-size: 12px; margin-bottom: 20px; display: none; text-align: left;
+        }
+    </style>
 </head>
-<script>
-  const savedTheme = localStorage.getItem('pepper_theme') || 'light';
-  document.documentElement.setAttribute('data-theme', savedTheme);
-</script>
 <body>
 
-<div class="card">
-  <div class="logo">pepper<span>AR</span></div>
-  <div class="subtitle">Ürünlerinizi gerçeğe dönüştürün</div>
+    <div class="login-card">
+        <div class="logo">CEMER <span>AR STUDIO</span></div>
+        <div class="subtitle">Yönetim paneline erişmek için giriş yapın</div>
 
-  <div class="tabs">
-    <div class="tab active" id="tab-login" onclick="switchTab('login')">Giriş</div>
-    <div class="tab" id="tab-register" onclick="switchTab('register')">Kayıt</div>
-  </div>
+        <div id="error-msg"></div>
 
-  <div id="error" class="error"></div>
+        <form id="login-form">
+            <div class="input-group">
+                <span class="label">E-Posta Adresi</span>
+                <input type="email" id="email" required placeholder="ornek@cemer.com.tr">
+            </div>
+            
+            <div class="input-group">
+                <span class="label">Şifre</span>
+                <input type="password" id="password" required placeholder="••••••••">
+            </div>
 
-  <form id="auth-form" onsubmit="return false;">
-    <div id="login-fields">
-      <input type="email" id="email" placeholder="E-posta adresi" required>
-      <input type="password" id="password" placeholder="Şifre" required>
-      <button type="submit" id="btn-submit" onclick="handleAuth('login')">Giriş Yap</button>
+            <button type="submit" class="btn" id="submit-btn">Giriş Yap</button>
+        </form>
     </div>
 
-    <div id="register-fields" style="display:none">
-      <input type="text" id="full_name" placeholder="Ad Soyad">
-      <button type="submit" id="btn-reg" onclick="handleAuth('register')">Hesap Oluştur</button>
-    </div>
-  </form>
+    <script>
+        // YENİ SUPABASE PROJESİ BAĞLANTISI
+        const _supabase = window.supabase.createClient(
+            'https://uoqojtynnarfpidrbinj.supabase.co',
+            'BURAYA_AZ_ONCE_BULDUGUN_UZUN_ANON_KEY_GELECEK'
+        );
 
-  <div class="divider">veya</div>
-  <button class="secondary" onclick="doGoogle()">
-    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="14" style="margin-right:8px; vertical-align:middle">
-    Google ile devam et
-  </button>
-</div>
+        const form = document.getElementById('login-form');
+        const btn = document.getElementById('submit-btn');
+        const errorMsg = document.getElementById('error-msg');
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script>
-  const _supabase = supabase.createClient(
-    'https://vdqumssdodfihuovytbs.supabase.co',
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZkcXVtc3Nkb2RmaWh1b3Z5dGJzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxNzI1NDgsImV4cCI6MjA4OTc0ODU0OH0.SpKRUbrPmKQtcEDUCwthD-74heZMxTl2R9m9LXN0WQI'
-  );
+        // SAYFA YÜKLENDİĞİNDE: Eski hatalı oturumları temizle ve geçerli oturum varsa içeri al
+        async function checkSession() {
+            const { data: { session }, error } = await _supabase.auth.getSession();
+            
+            if (session) {
+                // Eğer geçerli bir oturum varsa dashboard'a yönlendir
+                window.location.replace('dashboard.html');
+            } else {
+                // Eski projeden kalan çöp veriler varsa zorla temizle (Sonsuz döngüyü kırar)
+                localStorage.clear();
+            }
+        }
+        checkSession();
 
-  // Oturum kontrolü
-  _supabase.auth.onAuthStateChange((event, session) => {
-    if (session) window.location.href = 'dashboard.html';
-  });
+        // GİRİŞ İŞLEMİ
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
 
-  function switchTab(mode) {
-    const isLogin = mode === 'login';
-    document.getElementById('tab-login').classList.toggle('active', isLogin);
-    document.getElementById('tab-register').classList.toggle('active', !isLogin);
-    document.getElementById('register-fields').style.display = isLogin ? 'none' : 'block';
-    document.getElementById('btn-submit').textContent = isLogin ? 'Giriş Yap' : 'Kayıt Ol';
-    document.getElementById('error').style.display = 'none';
-  }
+            btn.disabled = true;
+            btn.innerText = "Giriş Yapılıyor...";
+            errorMsg.style.display = 'none';
 
-  function showError(msg, isSuccess = false) {
-    const el = document.getElementById('error');
-    el.textContent = msg;
-    el.style.display = 'block';
-    el.style.background = isSuccess ? 'var(--green-bg)' : 'var(--red-bg)';
-    el.style.color = isSuccess ? '#10b981' : 'var(--red)';
-    el.style.borderColor = isSuccess ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)';
-  }
+            const { data, error } = await _supabase.auth.signInWithPassword({
+                email: email,
+                password: password
+            });
 
-  async function handleAuth(mode) {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    const fullName = document.getElementById('full_name').value;
-    const btn = document.getElementById('btn-submit');
-
-    if (!email || !password) return;
-    
-    btn.disabled = true;
-    btn.textContent = 'İşleniyor...';
-
-    let result;
-    if (mode === 'login') {
-      result = await _supabase.auth.signInWithPassword({ email, password });
-    } else {
-      result = await _supabase.auth.signUp({ 
-        email, password, 
-        options: { data: { full_name: fullName } } 
-      });
-    }
-
-    if (result.error) {
-      showError(result.error.message);
-      btn.disabled = false;
-      btn.textContent = mode === 'login' ? 'Giriş Yap' : 'Kayıt Ol';
-    } else if (mode === 'register') {
-      showError('✅ Başarılı! E-posta kutunuzu kontrol edin.', true);
-    }
-  }
-
-  async function doGoogle() {
-    await _supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin + '/dashboard.html' }
-    });
-  }
-</script>
+            if (error) {
+                errorMsg.style.display = 'block';
+                errorMsg.innerText = "Hata: " + (error.message === "Invalid login credentials" ? "E-posta veya şifre hatalı." : error.message);
+                btn.disabled = false;
+                btn.innerText = "Giriş Yap";
+            } else {
+                // Giriş başarılı
+                window.location.replace('dashboard.html');
+            }
+        });
+    </script>
 </body>
 </html>
