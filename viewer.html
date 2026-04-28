@@ -21,8 +21,11 @@
 <body>
 
 <model-viewer id="mv" 
-    ar ar-modes="webxr scene-viewer quick-look" 
-    camera-controls shadow-intensity="1" 
+    ar 
+    ar-modes="webxr scene-viewer quick-look" 
+    ar-scale="fixed"
+    camera-controls 
+    shadow-intensity="1" 
     environment-image="neutral">
     
     <button slot="ar-button" class="ar-button">📸 AR İLE DÜNYANA YERLEŞTİR</button>
@@ -57,7 +60,8 @@
     mv.addEventListener('ar-status', (event) => {
         if (event.detail.status === 'failed' && !isMobile) {
             // Masaüstündeyse AR başarısız olur, QR modalını aç
-            showQRCode();
+            // showQRCode() fonksiyonu eklendiğinde burası tetiklenecek
+            if(typeof showQRCode === 'function') showQRCode();
         }
     });
 
