@@ -336,29 +336,32 @@
                 const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
                 grid.visible = true;
 
-                // GLB Export
                 const exporter = new GLTFExporter();
+                
+                // Three.js versiyon farklarını aşmak için ayarı direkt 3. parametre olarak veriyoruz
                 exporter.parse(currentModel, async (buffer) => {
                     
+                    // İŞTE HAYAT KURTARAN KONTROL! Eğer dosya bozuk çevrildiyse işlemi durdurur.
+                    if (!(buffer instanceof ArrayBuffer)) {
+                        alert("🚨 EXPORT HATASI: Tarayıcınız modeli 3D Binary formata çeviremedi! Lütfen sayfayı yenileyip tekrar deneyin.");
+                        document.getElementById('loading-ov').style.display = 'none';
+                        return;
+                    }
+
                     try {
                         const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
 
-                        // 1. RESİM YÜKLEME VE HATA KONTROLÜ
                         const thumbRes = await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
                         if (thumbRes.error) throw new Error("Resim yüklenemedi: " + thumbRes.error.message);
 
-                        // 2. MODEL YÜKLEME VE HATA KONTROLÜ
                         const glbRes = await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
                         if (glbRes.error) throw new Error("3D Model depoya yüklenemedi: " + glbRes.error.message);
                         
-                        // 3. VARYASYON YÜKLEME
                         if(variations.length > 0) {
                             const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
-                            const varRes = await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
-                            if (varRes.error) throw new Error("Renk dosyası yüklenemedi: " + varRes.error.message);
+                            await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
                         }
 
-                        // 4. DATABASE KAYIT
                         const dbRes = await _supabase.from('models').insert([{
                             user_id: user.id,
                             name: name,
@@ -375,10 +378,7 @@
                         document.getElementById('loading-ov').style.display = 'none';
                     }
 
-                }, function(exportError) {
-                    alert("🚨 EXPORT HATASI:\n" + exportError);
-                    document.getElementById('loading-ov').style.display = 'none';
-                }, { binary: true });
+                }, { binary: true }); // Hata yakalayıcı fonksiyonu sildik, sadece binary:true bıraktık ki kütüphane sapıtmasın!
 
             } catch (err) {
                 alert("🚨 SİSTEM HATASI:\n" + err.message);
