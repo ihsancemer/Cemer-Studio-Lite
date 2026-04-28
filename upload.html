@@ -307,18 +307,28 @@
         };
 
         // GÜVENLİ KAYIT SİSTEMİ
+        // GÜVENLİ KAYIT SİSTEMİ VE KATI HATA YAKALAYICI
         document.getElementById('btn-save').onclick = async () => {
             if(!currentModel) return;
-            const nameRaw = prompt("Model İsmi (Boşluksuz):", "cemer_model");
+            
+            const nameRaw = prompt("Model İsmi Girin (Örn: cemer_kaydirak):", "cemer_model");
             if(!nameRaw) return;
-            const name = nameRaw.trim().replace(/\s+/g, '_').toLowerCase();
+            
+            // Türkçe ve boşluk temizliği
+            const name = nameRaw.trim()
+                .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
+                .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/İ/g, 'i').replace(/Ğ/g, 'g').replace(/Ü/g, 'u')
+                .replace(/Ş/g, 's').replace(/Ö/g, 'o').replace(/Ç/g, 'c')
+                .replace(/\s+/g, '_')
+                .toLowerCase();
 
             document.getElementById('loading-ov').style.display = 'flex';
-            document.getElementById('loading-text').innerText = "DOSYALAR HAZIRLANIYOR...";
+            document.getElementById('loading-text').innerText = "DOSYALAR YÜKLENİYOR...";
 
             try {
                 const { data: { user } } = await _supabase.auth.getUser();
-                if(!user) throw new Error("Oturum bulunamadı.");
+                if(!user) throw new Error("Oturum bulunamadı. Lütfen tekrar giriş yapın.");
 
                 // Thumbnail Yakala
                 grid.visible = false; selectionBox.visible = false;
@@ -329,42 +339,52 @@
                 // GLB Export
                 const exporter = new GLTFExporter();
                 exporter.parse(currentModel, async (buffer) => {
-                    const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
-
-                    // STORAGE YÜKLEME (ContentType Şart!)
-                    await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
-                    await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
                     
-                    if(variations.length > 0) {
-                        const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
-                        await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
+                    try {
+                        const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
+
+                        // 1. RESİM YÜKLEME VE HATA KONTROLÜ
+                        const thumbRes = await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
+                        if (thumbRes.error) throw new Error("Resim yüklenemedi: " + thumbRes.error.message);
+
+                        // 2. MODEL YÜKLEME VE HATA KONTROLÜ
+                        const glbRes = await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
+                        if (glbRes.error) throw new Error("3D Model depoya yüklenemedi: " + glbRes.error.message);
+                        
+                        // 3. VARYASYON YÜKLEME
+                        if(variations.length > 0) {
+                            const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
+                            const varRes = await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
+                            if (varRes.error) throw new Error("Renk dosyası yüklenemedi: " + varRes.error.message);
+                        }
+
+                        // 4. DATABASE KAYIT
+                        const dbRes = await _supabase.from('models').insert([{
+                            user_id: user.id,
+                            name: name,
+                            exposure: renderer.toneMappingExposure,
+                            shadow_intensity: 1.0
+                        }]);
+                        if (dbRes.error) throw new Error("Veritabanı kaydı başarısız: " + dbRes.error.message);
+
+                        alert("🎉 Başarıyla kütüphaneye eklendi!");
+                        window.location.href = 'dashboard.html';
+
+                    } catch (innerErr) {
+                        alert("🚨 YÜKLEME İPTAL EDİLDİ:\n" + innerErr.message);
+                        document.getElementById('loading-ov').style.display = 'none';
                     }
 
-                    // DATABASE KAYIT
-                    await _supabase.from('models').insert([{
-                        user_id: user.id,
-                        name: name,
-                        exposure: renderer.toneMappingExposure,
-                        shadow_intensity: 1.0
-                    }]);
-
-                    alert("🎉 Başarıyla kütüphaneye eklendi!");
-                    window.location.href = 'dashboard.html';
+                }, function(exportError) {
+                    alert("🚨 EXPORT HATASI:\n" + exportError);
+                    document.getElementById('loading-ov').style.display = 'none';
                 }, { binary: true });
 
             } catch (err) {
-                alert("HATA: " + err.message);
+                alert("🚨 SİSTEM HATASI:\n" + err.message);
                 document.getElementById('loading-ov').style.display = 'none';
             }
         };
-
-        function animate() {
-            requestAnimationFrame(animate);
-            orbit.update();
-            if(selectionBox.visible && selectedMesh) selectionBox.update();
-            renderer.render(scene, camera);
-        }
-        init();
     </script>
 </body>
 </html>
