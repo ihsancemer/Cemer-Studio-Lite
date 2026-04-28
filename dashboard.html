@@ -3,176 +3,152 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>pepperAR — Dashboard</title>
+  <title>Cemer AR Studio — Dashboard</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;800&display=swap" rel="stylesheet">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root {
-      --bg: #fafafa; --bg2: #ffffff; --bg3: #f4f4f5;
-      --border: #e4e4e7; --border2: #d4d4d8;
-      --accent: #d97706; --accent-hov: #b45309; --accent-bg: rgba(217, 119, 6, 0.08);
-      --green: #10b981; --green-bg: rgba(16, 185, 129, 0.1);
-      --text: #18181b; --text2: #52525b; --text3: #a1a1aa;
-      --red: #ef4444; --red-bg: rgba(239, 68, 68, 0.08);
-      --radius: 8px; --radius-lg: 12px; --border-w: 1px;
-    }
-
-    [data-theme="dark"] {
-      --bg: #0a0a0a; --bg2: #121212; --bg3: #1a1a1a;
+      --bg: #0d0d0f; --bg2: #111113; --bg3: #1a1a1e;
       --border: #27272a; --border2: #3f3f46;
-      --accent: #facc15; --accent-hov: #eab308; --accent-bg: rgba(250, 204, 21, 0.1);
-      --green: #34d399; --green-bg: rgba(52, 211, 153, 0.1);
+      --accent: #19b0c7; --accent-hov: #1598ac; --accent-bg: rgba(25, 176, 199, 0.1);
+      --green: #10b981; --red: #ef4444; --red-bg: rgba(239, 68, 68, 0.1);
       --text: #f4f4f5; --text2: #a1a1aa; --text3: #71717a;
+      --radius: 8px; --radius-lg: 12px;
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; transition: background 0.3s; }
+    body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
+    /* Arka Plan Izgarası */
     body::before {
-      content: ''; position: fixed; inset: 0; z-index: 0; opacity: 0.4; pointer-events: none;
+      content: ''; position: fixed; inset: 0; z-index: 0; opacity: 0.2; pointer-events: none;
       background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
       background-size: 40px 40px;
     }
 
-    .sidebar { position: fixed; top: 0; left: 0; width: 220px; height: 100vh; background: var(--bg2); border-right: var(--border-w) solid var(--border); display: flex; flex-direction: column; z-index: 10; padding-bottom: 24px; }
-    .sidebar-logo { padding: 28px 24px; border-bottom: var(--border-w) solid var(--border); font-size: 18px; font-weight: 600; }
+    /* Sidebar */
+    .sidebar { position: fixed; top: 0; left: 0; width: 240px; height: 100vh; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; padding-bottom: 24px; }
+    .sidebar-logo { padding: 28px 24px; border-bottom: 1px solid var(--border); font-size: 20px; font-weight: 800; letter-spacing: 1px; }
     .sidebar-logo span { color: var(--accent); }
-    .sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
-    .nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--radius); cursor: pointer; font-size: 13.5px; color: var(--text2); text-decoration: none; border: 1px solid transparent; transition: 0.2s; }
+    .sidebar-nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius); cursor: pointer; font-size: 14px; color: var(--text2); text-decoration: none; transition: 0.2s; }
     .nav-item:hover { background: var(--bg3); color: var(--text); }
-    .nav-item.active { background: var(--accent-bg); color: var(--accent); border-color: var(--accent-bg); }
+    .nav-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+
     .sidebar-user { padding: 16px; margin: 0 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
-    .sidebar-user-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
-    .sidebar-user-email { font-size: 11px; color: var(--text3); }
-    .sidebar-user-plan { font-size: 11px; color: var(--green); font-family: 'DM Mono', monospace; margin-top: 4px; text-transform: uppercase; }
-    .btn-signout { margin-top: 10px; padding: 8px; border: 1px solid var(--border2); border-radius: var(--radius); width: 100%; cursor: pointer; font-size: 12px; background: transparent; color: var(--text2); }
+    .sidebar-user-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sidebar-user-email { font-size: 11px; color: var(--text3); margin-bottom: 8px; }
+    .btn-signout { padding: 8px; border: 1px solid var(--border2); border-radius: var(--radius); width: 100%; cursor: pointer; font-size: 11px; background: transparent; color: var(--text2); font-weight: 600; }
     .btn-signout:hover { border-color: var(--red); color: var(--red); background: var(--red-bg); }
 
-    .main { margin-left: 220px; min-height: 100vh; position: relative; z-index: 1; }
-    .topbar { height: 60px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: var(--bg2); position: sticky; top: 0; z-index: 5; }
+    /* Main Content */
+    .main { margin-left: 240px; min-height: 100vh; position: relative; z-index: 1; }
+    .topbar { height: 64px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 32px; background: var(--bg2); position: sticky; top: 0; z-index: 5; }
     .content { padding: 32px; }
 
-    .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px; }
-    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; }
-    .stat-label { font-size: 11.5px; color: var(--text3); text-transform: uppercase; font-weight: 600; margin-bottom: 8px; }
-    .stat-value { font-size: 28px; font-weight: 500; font-family: 'DM Mono', monospace; }
-    .stat-value.teal { color: var(--accent); }
+    /* Stats */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .stat-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 24px; position: relative; overflow: hidden; }
+    .stat-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 2px; background: var(--accent); opacity: 0.3; }
+    .stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; font-weight: 700; letter-spacing: 1px; margin-bottom: 10px; }
+    .stat-value { font-size: 32px; font-weight: 800; color: var(--text); }
+    .stat-value span { font-size: 14px; color: var(--text3); font-weight: 400; }
 
-    .plan-bar { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 22px; margin-bottom: 32px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-    .progress-wrap { flex: 1; max-width: 300px; }
-    .progress-bar { height: 6px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 8px; }
-    .progress-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.6s ease; }
-    .plan-badge { padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; border: 1px solid var(--border); }
-
-    .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
-    .model-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: 0.2s; }
-    .model-card:hover { border-color: var(--accent); transform: translateY(-2px); }
-    .model-thumb { height: 160px; background: var(--bg3); position: relative; }
-    .model-body { padding: 16px; }
-    .model-name { font-family: 'DM Mono', monospace; font-weight: 600; margin-bottom: 12px; }
+    /* Model Grid */
+    .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
+    .model-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: 0.3s; }
+    .model-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+    .model-thumb { height: 180px; background: #000; position: relative; border-bottom: 1px solid var(--border); }
+    .model-body { padding: 18px; }
+    .model-name { font-weight: 700; font-size: 16px; margin-bottom: 14px; color: #fff; }
     .model-actions { display: flex; gap: 8px; }
-    .btn-sm { flex: 1; padding: 8px; border-radius: var(--radius); font-size: 12px; cursor: pointer; border: 1px solid var(--border2); background: var(--bg); color: var(--text2); text-decoration: none; text-align: center; }
-    .btn-sm.primary { border-color: var(--accent); color: var(--accent); }
+    
+    /* Buttons */
+    .btn-sm { flex: 1; padding: 10px; border-radius: var(--radius); font-size: 12px; cursor: pointer; border: 1px solid var(--border2); background: var(--bg3); color: var(--text); font-weight: 600; transition: 0.2s; text-align: center; text-decoration: none; }
+    .btn-sm.primary { background: var(--accent); border-color: var(--accent); color: #000; }
+    .btn-sm.primary:hover { background: var(--accent-hov); border-color: var(--accent-hov); }
     .btn-sm.danger:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
 
-    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 100; display: none; align-items: center; justify-content: center; }
-    .modal-backdrop.open { display: flex; }
-    .modal { background: var(--bg2); border-radius: var(--radius-lg); padding: 28px; width: 100%; max-width: 400px; text-align: center; }
-    #qrcode { display: flex; justify-content: center; margin: 20px 0; padding: 10px; background: white; border-radius: 8px; }
+    .btn-upload { background: var(--accent); color: #000; padding: 10px 20px; border-radius: var(--radius); text-decoration: none; font-size: 14px; font-weight: 700; transition: 0.2s; }
+    .btn-upload:hover { transform: scale(1.05); }
 
-    .btn-upload { background: var(--accent); color: #fff; padding: 8px 18px; border-radius: var(--radius); text-decoration: none; font-size: 14px; font-weight: 600; }
-    [data-theme="dark"] .btn-upload { color: #000; }
-    .toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg2); border: 1px solid var(--border2); padding: 12px 18px; border-radius: var(--radius); transform: translateY(100px); opacity: 0; transition: 0.3s; z-index: 999; }
+    /* Modal */
+    .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px; }
+    .modal-backdrop.open { display: flex; }
+    .modal { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 32px; width: 100%; max-width: 440px; text-align: center; }
+    #qrcode { display: flex; justify-content: center; margin: 24px 0; padding: 15px; background: white; border-radius: 12px; }
+    .url-box { font-size: 11px; color: var(--accent); background: var(--accent-bg); padding: 12px; border-radius: 6px; word-break: break-all; margin-bottom: 20px; border: 1px dashed var(--accent); }
+
+    .toast { position: fixed; bottom: 32px; right: 32px; background: var(--accent); color: #000; padding: 12px 24px; border-radius: var(--radius); font-weight: 700; transform: translateY(100px); opacity: 0; transition: 0.4s; z-index: 999; }
     .toast.show { transform: translateY(0); opacity: 1; }
   </style>
 </head>
 <body>
 
 <aside class="sidebar">
-  <div class="sidebar-logo">pepper<span>AR</span></div>
+  <div class="sidebar-logo">CEMER <span>AR STUDIO</span></div>
   <nav class="sidebar-nav">
-    <a class="nav-item active" href="dashboard.html">Modellerim</a>
-    <a class="nav-item" href="upload.html">Model Yükle</a>
+    <a class="nav-item active" href="dashboard.html">📦 Modellerim</a>
+    <a class="nav-item" href="editor.html">🛠️ Pro Editor</a>
   </nav>
-  <div class="sidebar-user">
-    <div class="sidebar-user-name" id="user-name">...</div>
-    <div class="sidebar-user-email" id="user-email">...</div>
-    <div class="sidebar-user-plan" id="user-plan">FREE</div>
+  <div class="sidebar-user" id="user-box" style="display:none">
+    <div class="sidebar-user-name" id="user-email-display">Yükleniyor...</div>
+    <div class="sidebar-user-email">Cemer Holding Aktif Oturum</div>
     <button class="btn-signout" onclick="signOut()">Çıkış Yap</button>
   </div>
 </aside>
 
 <main class="main">
   <div class="topbar">
-    <span style="font-weight:600">Dashboard</span>
-    <div style="display:flex; gap:12px; align-items:center">
-        <button onclick="toggleTheme()" style="background:none; border:none; cursor:pointer; font-size:18px">🌓</button>
-        <a href="upload.html" class="btn-upload">+ Yeni Model</a>
-    </div>
+    <span style="font-weight:700; font-size: 18px;">Yönetim Paneli</span>
+    <a href="editor.html" class="btn-upload">+ Yeni Model Tasarla</a>
   </div>
 
   <div class="content">
     <div class="stats-row">
       <div class="stat-card">
-        <div class="stat-label">Toplam Model</div>
-        <div class="stat-value teal" id="stat-total">0</div>
-        <div style="font-size:11px; color:var(--text3)" id="stat-limit-text">/ 3 limit</div>
+        <div class="stat-label">Toplam Ürün</div>
+        <div class="stat-value" id="stat-total">0 <span>adet</span></div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Görüntülenme</div>
-        <div class="stat-value" id="stat-views">0</div>
+        <div class="stat-label">Depolama Durumu</div>
+        <div class="stat-value" style="color:var(--accent)">Aktif</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Bu Ay</div>
-        <div class="stat-value" id="stat-month">0</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-label">Aktif Model</div>
-        <div class="stat-value" id="stat-active">0</div>
+        <div class="stat-label">AR Deneyimi</div>
+        <div class="stat-value" id="stat-active">Sınırsız</div>
       </div>
     </div>
 
-    <div class="plan-bar">
-      <div style="display:flex; align-items:center; gap:12px">
-        <span class="plan-badge" id="plan-badge">FREE</span>
-        <span style="font-size:13px">Kullanım Durumu</span>
-      </div>
-      <div class="progress-wrap">
-        <div style="display:flex; justify-content:space-between; font-size:12px; font-weight:600">
-            <span>Model: <span id="plan-used">0</span>/<span id="plan-max">3</span></span>
-        </div>
-        <div class="progress-bar"><div class="progress-fill" id="plan-progress"></div></div>
-      </div>
-      <button class="btn-sm primary" style="max-width:120px" onclick="alert('Yakında!')">Pro'ya Geç</button>
-    </div>
-
-    <div style="margin-bottom:16px; font-weight:600">
-        Modellerim <span id="model-count" style="color:var(--text3); font-family:'DM Mono'">0</span>
+    <div style="margin-bottom:24px; font-weight:700; font-size: 20px; display: flex; align-items: center; gap: 10px;">
+        Ürün Kütüphanesi <span id="model-count" style="color:var(--text3); font-size: 14px; font-weight: 400;">(0 Ürün)</span>
     </div>
 
     <div class="model-grid" id="model-grid">
-      <div style="padding:40px; color:var(--text3)">Yükleniyor...</div>
+      <div style="padding:40px; color:var(--text3)">Veriler yükleniyor, lütfen bekleyin...</div>
     </div>
   </div>
 </main>
 
 <div class="modal-backdrop" id="link-modal">
     <div class="modal">
-        <h3 id="link-modal-name">Model Linki</h3>
+        <h3 id="link-modal-name" style="margin-bottom: 8px;">Model Linki</h3>
+        <p style="font-size: 13px; color: var(--text2);">Bu QR kodu müşterilerinize okutarak ürünü AR olarak deneyimlemelerini sağlayabilirsiniz.</p>
         <div id="qrcode"></div>
-        <p style="font-size:11px; color:var(--text2); margin-bottom:16px; word-break:break-all" id="link-modal-url"></p>
-        <div style="display:flex; gap:10px">
-            <button class="btn-sm primary" onclick="copyModalLink()">Kopyala</button>
+        <div class="url-box" id="link-modal-url"></div>
+        <div style="display:flex; gap:12px">
+            <button class="btn-sm primary" onclick="copyModalLink()">Linki Kopyala</button>
             <button class="btn-sm" onclick="closeModal('link-modal')">Kapat</button>
         </div>
     </div>
 </div>
 
-<div class="toast" id="toast">...</div>
+<div class="toast" id="toast">Kopyalandı!</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
+  // Kendi yeni Supabase bilgilerini buraya girdiğinden emin ol
   const _supabase = supabase.createClient(
     'https://uoqojtynnarfpidrbinj.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvcW9qdHlubmFyZnBpZHJiaW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyODkzMzksImV4cCI6MjA5Mjg2NTMzOX0.b1xE1KUYxAJT06Sy1npJPEVFUDFbzvqCHOIzBaiA3QM'
@@ -180,98 +156,129 @@
 
   const BASE_URL = window.location.origin;
   let currentUser = null;
-  let userProfile = null;
-
-  function safeSetText(id, value) {
-    const el = document.getElementById(id);
-    if (el) el.textContent = value;
-  }
 
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
     if (!session) { window.location.href = 'login.html'; return; }
+    
     currentUser = session.user;
-    await loadProfile();
+    document.getElementById('user-box').style.display = 'block';
+    document.getElementById('user-email-display').textContent = currentUser.email;
+    
     await loadModels();
   }
 
-  async function loadProfile() {
-    const { data } = await _supabase.from('profiles').select('*').eq('id', currentUser.id).single();
-    userProfile = data;
-    safeSetText('user-name', data?.full_name || currentUser.email.split('@')[0]);
-    safeSetText('user-email', currentUser.email);
-    safeSetText('user-plan', (data?.plan || 'free').toUpperCase());
-    const badge = document.getElementById('plan-badge');
-    if(badge) badge.textContent = (data?.plan || 'free').toUpperCase();
-    const limit = data?.model_limit || 3;
-    safeSetText('stat-limit-text', `/ ${limit} limit`);
-    safeSetText('plan-max', limit);
-  }
-
   async function loadModels() {
-    const { data } = await _supabase.from('models').select('*').eq('user_id', currentUser.id).order('created_at', { ascending: false });
+    const { data, error } = await _supabase
+      .from('models')
+      .select('*')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error("Yükleme hatası:", error);
+      return;
+    }
+
     const list = data || [];
     renderModels(list);
-    const total = list.length;
-    const limit = userProfile?.model_limit || 3;
-    safeSetText('stat-total', total);
-    safeSetText('model-count', `(${total})`);
-    safeSetText('plan-used', total);
-    const progress = document.getElementById('plan-progress');
-    if(progress) progress.style.width = Math.min((total / limit) * 100, 100) + '%';
+    
+    document.getElementById('stat-total').innerHTML = `${list.length} <span>adet</span>`;
+    document.getElementById('model-count').textContent = `(${list.length} Ürün)`;
   }
 
   function renderModels(list) {
     const grid = document.getElementById('model-grid');
     if(!grid) return;
+
     if (list.length === 0) {
-      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:60px; border:1px dashed var(--border); border-radius:12px;">Henüz model yok.</div>`;
+      grid.innerHTML = `
+        <div style="grid-column:1/-1; text-align:center; padding:80px; border:2px dashed var(--border); border-radius:12px; background: var(--bg2);">
+          <div style="font-size: 40px; margin-bottom: 15px;">📦</div>
+          <div style="font-weight: 700; margin-bottom: 5px;">Henüz Ürün Yok</div>
+          <div style="color: var(--text3); font-size: 13px; margin-bottom: 20px;">İlk modelinizi tasarlamak için Pro Editor'ü kullanın.</div>
+          <a href="editor.html" class="btn-sm primary" style="display: inline-block; width: auto; padding: 10px 25px;">Hemen Başla</a>
+        </div>`;
       return;
     }
+
     grid.innerHTML = list.map(m => {
-      const safeName = encodeURIComponent(m.name);
+      // Önbelleği (cache) kırmak için her seferinde zaman damgası ekliyoruz
       const { data: thumbData } = _supabase.storage.from('models').getPublicUrl(`${m.name}-thumb.webp`);
+      const thumbUrlWithCache = `${thumbData.publicUrl}?t=${new Date().getTime()}`;
+
       return `
       <div class="model-card">
         <div class="model-thumb">
-          <img src="${thumbData.publicUrl}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x160?text=Model'">
+          <img src="${thumbUrlWithCache}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x180?text=Model+Hazirlaniyor'">
         </div>
         <div class="model-body">
-          <div class="model-name">${m.name}</div>
+          <div class="model-name">${m.name.toUpperCase()}</div>
           <div class="model-actions">
-            <button class="btn-sm primary" onclick="showLink('${safeName}')">Link</button>
-            <button class="btn-sm danger" onclick="deleteModel('${m.id}')">Sil</button>
+            <button class="btn-sm primary" onclick="showLink('${m.name}')">🔗 Link & QR</button>
+            <a href="viewer.html?model=${m.name}" target="_blank" class="btn-sm">👁️ Gözat</a>
+            <button class="btn-sm danger" onclick="deleteModel('${m.id}', '${m.name}')">🗑️ Sil</button>
           </div>
         </div>
       </div>`;
     }).join('');
   }
 
-  function showLink(safeName) {
-    const url = `${BASE_URL}/viewer.html?model=${safeName}`;
-    document.getElementById('link-modal-name').textContent = decodeURIComponent(safeName);
+  function showLink(name) {
+    const url = `${BASE_URL}/viewer.html?model=${encodeURIComponent(name)}`;
+    document.getElementById('link-modal-name').textContent = name.toUpperCase();
     document.getElementById('link-modal-url').textContent = url;
+    
     const qrContainer = document.getElementById('qrcode');
     qrContainer.innerHTML = "";
-    new QRCode(qrContainer, { text: url, width: 140, height: 140 });
+    new QRCode(qrContainer, { text: url, width: 180, height: 180, colorDark: "#000000", colorLight: "#ffffff" });
+    
     document.getElementById('link-modal').classList.add('open');
   }
 
   function copyModalLink() {
     const url = document.getElementById('link-modal-url').textContent;
-    navigator.clipboard.writeText(url).then(() => { showToast("Kopyalandı!"); closeModal('link-modal'); });
+    navigator.clipboard.writeText(url).then(() => { 
+        showToast("Link Kopyalandı!"); 
+    });
   }
 
-  async function deleteModel(id) {
-    if(!confirm("Emin misiniz?")) return;
-    await _supabase.from('models').delete().eq('id', id);
-    loadModels();
+  async function deleteModel(id, name) {
+    if(!confirm(`"${name}" ürününü ve tüm dosyalarını silmek istediğinize emin misiniz?`)) return;
+
+    try {
+        // 1. Storage'daki dosyaları sil (GLB, Thumbnail ve varsa JSON)
+        await _supabase.storage.from('models').remove([
+            `${name}-3d.glb`, 
+            `${name}-thumb.webp`, 
+            `${name}-vars.json`
+        ]);
+
+        // 2. Veritabanındaki kaydı sil
+        const { error } = await _supabase.from('models').delete().eq('id', id);
+        
+        if(error) throw error;
+        
+        showToast("Ürün başarıyla silindi.");
+        loadModels();
+    } catch (err) {
+        alert("Silme işlemi sırasında bir hata oluştu: " + err.message);
+    }
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-  function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
-  function toggleTheme() { const current = document.documentElement.getAttribute('data-theme'); const target = current === 'dark' ? 'light' : 'dark'; document.documentElement.setAttribute('data-theme', target); localStorage.setItem('pepper_theme', target); }
-  function signOut() { _supabase.auth.signOut().then(() => window.location.href = 'login.html'); }
+  
+  function showToast(msg) { 
+    const t = document.getElementById('toast'); 
+    t.textContent = msg; 
+    t.classList.add('show'); 
+    setTimeout(() => t.classList.remove('show'), 3000); 
+  }
+
+  function signOut() { 
+    _supabase.auth.signOut().then(() => window.location.href = 'login.html'); 
+  }
+
   init();
 </script>
 </body>
