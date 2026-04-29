@@ -224,7 +224,6 @@
 
   function renderSerialTabs() {
     const container = document.getElementById('serial-tabs');
-    // Benzersiz seri kodlarını çek
     const serials = [...new Set(allModels.map(m => m.serial_code).filter(s => s))].sort();
     
     document.getElementById('stat-serials').textContent = serials.length;
@@ -239,7 +238,6 @@
   function filterBySerial(serial) {
     currentSerialFilter = serial;
     
-    // UI Aktiflik Durumu
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if(serial === 'all') {
         document.getElementById('tab-all').classList.add('active');
@@ -258,12 +256,10 @@
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
     const sortBy = document.getElementById('sort-select').value;
 
-    // 1. Seri Filtresi
     if (currentSerialFilter !== 'all') {
         filtered = filtered.filter(m => m.serial_code === currentSerialFilter);
     }
 
-    // 2. Arama Filtresi
     if (searchTerm) {
         filtered = filtered.filter(m => 
             m.name.toLowerCase().includes(searchTerm) || 
@@ -271,7 +267,6 @@
         );
     }
 
-    // 3. Sıralama
     filtered.sort((a, b) => {
         switch (sortBy) {
             case 'date-desc': return new Date(b.created_at) - new Date(a.created_at);
@@ -309,10 +304,12 @@
             <span>${dateStr}</span>
           </div>
           <div class="model-actions">
-            <button class="btn-sm primary" onclick="showLink('${m.name}')">🔗 Paylaş</button>
+            <a href="upload.html?edit=${encodeURIComponent(m.name)}" class="btn-sm" style="background:var(--bg2)">✏️ Düzenle</a>
+            
             <a href="viewer.html?model=${m.name}" target="_blank" class="btn-sm">👁️ Gözat</a>
             <button class="btn-sm danger" onclick="deleteModel('${m.id}', '${m.name}')">🗑️</button>
           </div>
+          <button class="btn-sm primary" style="width:100%; margin-top:8px;" onclick="showLink('${m.name}')">🔗 Paylaş & QR</button>
         </div>
       </div>`;
     }).join('');
@@ -343,10 +340,10 @@
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-  function showToast(msg) { 
-    const t = document.getElementById('toast'); 
-    t.textContent = msg; t.classList.add('show'); 
-    setTimeout(() => t.classList.remove('show'), 3000); 
+  function showToast(msg) { 
+    const t = document.getElementById('toast'); 
+    t.textContent = msg; t.classList.add('show'); 
+    setTimeout(() => t.classList.remove('show'), 3000); 
   }
   function signOut() { _supabase.auth.signOut().then(() => window.location.href = 'login.html'); }
 
