@@ -55,13 +55,25 @@
     .stat-value { font-size: 32px; font-weight: 800; color: var(--text); }
     .stat-value span { font-size: 14px; color: var(--text3); font-weight: 400; }
 
+    /* Library Filters */
+    .library-header { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 24px; flex-wrap: wrap; gap: 20px; }
+    .search-box { position: relative; flex: 1; min-width: 280px; }
+    .search-box input { width: 100%; padding: 12px 16px 12px 42px; background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius); color: white; font-family: inherit; font-size: 14px; outline: none; transition: 0.2s; }
+    .search-box input:focus { border-color: var(--accent); background: var(--bg3); }
+    .search-box i { position: absolute; left: 14px; top: 13px; opacity: 0.5; }
+
+    .filter-group { display: flex; gap: 12px; align-items: center; }
+    .filter-group select { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); padding: 11px 16px; border-radius: var(--radius); font-family: inherit; font-size: 13px; outline: none; cursor: pointer; }
+    .filter-group select:focus { border-color: var(--accent); color: white; }
+
     /* Model Grid */
     .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
-    .model-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: 0.3s; }
+    .model-card { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; transition: 0.3s; position: relative; }
     .model-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
     .model-thumb { height: 180px; background: #000; position: relative; border-bottom: 1px solid var(--border); }
     .model-body { padding: 18px; }
-    .model-name { font-weight: 700; font-size: 16px; margin-bottom: 14px; color: #fff; }
+    .model-name { font-weight: 700; font-size: 16px; margin-bottom: 4px; color: #fff; }
+    .model-meta { font-size: 11px; color: var(--text3); margin-bottom: 14px; display: flex; justify-content: space-between; }
     .model-actions { display: flex; gap: 8px; }
     
     /* Buttons */
@@ -121,8 +133,26 @@
       </div>
     </div>
 
-    <div style="margin-bottom:24px; font-weight:700; font-size: 20px; display: flex; align-items: center; gap: 10px;">
-        Ürün Kütüphanesi <span id="model-count" style="color:var(--text3); font-size: 14px; font-weight: 400;">(0 Ürün)</span>
+    <div class="library-header">
+        <div>
+            <div style="font-weight:700; font-size: 20px; margin-bottom: 4px;">Ürün Kütüphanesi</div>
+            <div id="model-count" style="color:var(--text3); font-size: 13px;">(0 Ürün Listeleniyor)</div>
+        </div>
+        
+        <div class="search-box">
+            <i>🔍</i>
+            <input type="text" id="search-input" placeholder="Ürün ismi veya kod ile ara...">
+        </div>
+
+        <div class="filter-group">
+            <select id="sort-select">
+                <option value="date-desc">En Yeni Eklenen</option>
+                <option value="date-asc">En Eski Eklenen</option>
+                <option value="name-asc">İsim (A-Z)</option>
+                <option value="name-desc">İsim (Z-A)</option>
+                <option value="code-asc">Kod (Artan)</option>
+            </select>
+        </div>
     </div>
 
     <div class="model-grid" id="model-grid">
@@ -148,7 +178,6 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
-  // Kendi yeni Supabase bilgilerini buraya girdiğinden emin ol
   const _supabase = supabase.createClient(
     'https://uoqojtynnarfpidrbinj.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvcW9qdHlubmFyZnBpZHJiaW5qIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyODkzMzksImV4cCI6MjA5Mjg2NTMzOX0.b1xE1KUYxAJT06Sy1npJPEVFUDFbzvqCHOIzBaiA3QM'
@@ -156,6 +185,7 @@
 
   const BASE_URL = window.location.origin;
   let currentUser = null;
+  let allModels = []; // Tüm veriyi hafızada tutmak için
 
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
@@ -166,25 +196,56 @@
     document.getElementById('user-email-display').textContent = currentUser.email;
     
     await loadModels();
+    
+    // Filtreleme Event Dinleyicileri
+    document.getElementById('search-input').addEventListener('input', applyFilters);
+    document.getElementById('sort-select').addEventListener('change', applyFilters);
   }
 
   async function loadModels() {
     const { data, error } = await _supabase
       .from('models')
       .select('*')
-      .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false });
+      .eq('user_id', currentUser.id);
 
     if (error) {
       console.error("Yükleme hatası:", error);
       return;
     }
 
-    const list = data || [];
-    renderModels(list);
+    allModels = data || [];
+    applyFilters(); // İlk yüklemede sıralamayı uygula
     
-    document.getElementById('stat-total').innerHTML = `${list.length} <span>adet</span>`;
-    document.getElementById('model-count').textContent = `(${list.length} Ürün)`;
+    document.getElementById('stat-total').innerHTML = `${allModels.length} <span>adet</span>`;
+  }
+
+  function applyFilters() {
+    let filtered = [...allModels];
+    const searchTerm = document.getElementById('search-input').value.toLowerCase();
+    const sortBy = document.getElementById('sort-select').value;
+
+    // 1. ARAMA MANTIĞI
+    if (searchTerm) {
+        filtered = filtered.filter(m => 
+            m.name.toLowerCase().includes(searchTerm) || 
+            m.id.toLowerCase().includes(searchTerm)
+        );
+    }
+
+    // 2. SIRALAMA MANTIĞI
+    filtered.sort((a, b) => {
+        switch (sortBy) {
+            case 'date-desc': return new Date(b.created_at) - new Date(a.created_at);
+            case 'date-asc': return new Date(a.created_at) - new Date(b.created_at);
+            case 'name-asc': return a.name.localeCompare(b.name);
+            case 'name-desc': return b.name.localeCompare(a.name);
+            case 'code-asc': return a.id.localeCompare(b.id);
+            default: return 0;
+        }
+    });
+
+    renderModels(filtered);
+    document.getElementById('model-count').textContent = `(${filtered.length} Ürün Listeleniyor)`;
   }
 
   function renderModels(list) {
@@ -194,30 +255,34 @@
     if (list.length === 0) {
       grid.innerHTML = `
         <div style="grid-column:1/-1; text-align:center; padding:80px; border:2px dashed var(--border); border-radius:12px; background: var(--bg2);">
-          <div style="font-size: 40px; margin-bottom: 15px;">📦</div>
-          <div style="font-weight: 700; margin-bottom: 5px;">Henüz Ürün Yok</div>
-          <div style="color: var(--text3); font-size: 13px; margin-bottom: 20px;">İlk modelinizi tasarlamak için Pro Editor'ü kullanın.</div>
-          <a href="upload.html" class="btn-sm primary" style="display: inline-block; width: auto; padding: 10px 25px;">Hemen Başla</a>
+          <div style="font-size: 40px; margin-bottom: 15px;">🔍</div>
+          <div style="font-weight: 700; margin-bottom: 5px;">Sonuç Bulunamadı</div>
+          <div style="color: var(--text3); font-size: 13px;">Arama kriterlerinize uygun model bulunmuyor.</div>
         </div>`;
       return;
     }
 
     grid.innerHTML = list.map(m => {
-      // Önbelleği (cache) kırmak için her seferinde zaman damgası ekliyoruz
       const { data: thumbData } = _supabase.storage.from('models').getPublicUrl(`${m.name}-thumb.webp`);
-      const thumbUrlWithCache = `${thumbData.publicUrl}?t=${new Date().getTime()}`;
+      const thumbUrlWithCache = `${thumbData.publicUrl}?t=${new Date(m.created_at).getTime()}`;
+      const dateStr = new Date(m.created_at).toLocaleDateString('tr-TR');
+      const shortId = m.id.split('-')[0].toUpperCase();
 
       return `
       <div class="model-card">
         <div class="model-thumb">
-          <img src="${thumbUrlWithCache}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x180?text=Model+Hazirlaniyor'">
+          <img src="${thumbUrlWithCache}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x180?text=Model+Yok'">
         </div>
         <div class="model-body">
           <div class="model-name">${m.name.toUpperCase()}</div>
+          <div class="model-meta">
+            <span>Kod: #${shortId}</span>
+            <span>${dateStr}</span>
+          </div>
           <div class="model-actions">
-            <button class="btn-sm primary" onclick="showLink('${m.name}')">🔗 Link & QR</button>
+            <button class="btn-sm primary" onclick="showLink('${m.name}')">🔗 Link</button>
             <a href="viewer.html?model=${m.name}" target="_blank" class="btn-sm">👁️ Gözat</a>
-            <button class="btn-sm danger" onclick="deleteModel('${m.id}', '${m.name}')">🗑️ Sil</button>
+            <button class="btn-sm danger" onclick="deleteModel('${m.id}', '${m.name}')">🗑️</button>
           </div>
         </div>
       </div>`;
@@ -244,25 +309,17 @@
   }
 
   async function deleteModel(id, name) {
-    if(!confirm(`"${name}" ürününü ve tüm dosyalarını silmek istediğinize emin misiniz?`)) return;
+    if(!confirm(`"${name}" ürününü silmek istediğinize emin misiniz?`)) return;
 
     try {
-        // 1. Storage'daki dosyaları sil (GLB, Thumbnail ve varsa JSON)
-        await _supabase.storage.from('models').remove([
-            `${name}-3d.glb`, 
-            `${name}-thumb.webp`, 
-            `${name}-vars.json`
-        ]);
-
-        // 2. Veritabanındaki kaydı sil
+        await _supabase.storage.from('models').remove([`${name}-3d.glb`, `${name}-thumb.webp`, `${name}-vars.json`]);
         const { error } = await _supabase.from('models').delete().eq('id', id);
-        
         if(error) throw error;
         
-        showToast("Ürün başarıyla silindi.");
+        showToast("Ürün silindi.");
         loadModels();
     } catch (err) {
-        alert("Silme işlemi sırasında bir hata oluştu: " + err.message);
+        alert("Hata: " + err.message);
     }
   }
 
