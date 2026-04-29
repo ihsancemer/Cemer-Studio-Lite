@@ -225,9 +225,14 @@
                 if(currentModel) scene.remove(currentModel);
                 currentModel = gltf.scene;
                 scene.add(currentModel);
+                
+                // Matrisleri dondur ki exporter hata yapmasın
+                currentModel.updateMatrixWorld(true);
+                
                 const box = new THREE.Box3().setFromObject(currentModel);
                 const center = box.getCenter(new THREE.Vector3());
                 currentModel.position.set(-center.x, -box.min.y, -center.z);
+                
                 document.getElementById('loading-ov').style.display = 'none';
                 e.target.value = ""; 
             });
@@ -296,77 +301,65 @@
             const serialCode = document.getElementById('save-serial').value.trim();
             if(!nameRaw || !serialCode) return alert("Eksik bilgi!");
 
-            // --- GÜNCELLENMİŞ İSİM TEMİZLEME MOTORU (Tireye İzin Verildi) ---
-            const name = nameRaw.trim()
-                .toLowerCase()
+            const name = nameRaw.trim().toLowerCase()
                 .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                .replace(/[^a-z0-9-]/g, '_') 
-                .replace(/__+/g, '_')      
-                .replace(/^_|_$/g, '');    
+                .replace(/[^a-z0-9-]/g, '_').replace(/__+/g, '_').replace(/^_|_$/g, '');
 
             document.getElementById('save-modal').style.display = 'none';
             document.getElementById('loading-ov').style.display = 'flex';
+            document.getElementById('loading-text').innerText = "MODEL PAKETLENİYOR...";
 
             try {
-                const { data: { user } } = await _supabase.auth.getUser();
+                // 1. OTURUM KONTROLÜ
+                const { data: { user }, error: authErr } = await _supabase.auth.getUser();
+                if (authErr || !user) throw new Error("Oturum kapalı! Lütfen tekrar giriş yapın.");
+
+                // 2. MODEL HAZIRLIĞI
+                if (!currentModel) throw new Error("Sahne boş! Önce bir model açın.");
+                currentModel.updateMatrixWorld(true);
                 
-                // --- İYİLEŞTİRME: EXPORT ÖNCESİ DÜNYA MATRİSİNİ GÜNCELLE ---
-                if (currentModel) currentModel.updateMatrixWorld(true);
-                
+                // Grid ve yardımcıları gizle (Thumbnail temiz çıksın)
                 grid.visible = false; selectionBox.visible = false;
                 composer.render();
                 const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
                 grid.visible = true;
 
+                // 3. EXPORT SÜRECİ
                 const exporter = new GLTFExporter();
-                
-                // --- İYİLEŞTİRME: GELİŞMİŞ EXPORTER SEÇENEKLERİ ---
-                const options = {
-                    binary: true,
-                    animations: currentModel.animations || [],
-                    includeCustomExtensions: true,
-                    onlyVisible: true
-                };
+                exporter.parse(currentModel, async (buffer) => {
+                    const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
+                    
+                    console.log("🛠️ Paketlenen GLB Boyutu:", glbBlob.size, "bytes");
+                    if (glbBlob.size < 100) throw new Error("Paketleme hatası: Model verisi boş çıktı (15 byte sorunu)!");
 
-                exporter.parse(
-                    currentModel, 
-                    async (buffer) => {
-                        const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
-                        
-                        // --- KRİTİK: BOŞ DOSYA (15 byte) KONTROLÜ ---
-                        console.log("📦 Hazırlanan GLB Boyutu:", glbBlob.size, "bytes");
-                        if (glbBlob.size < 100) { 
-                            console.error("❌ Model verisi boş yakalandı!");
-                            alert("Hata: Model dışa aktarılamadı (Dosya boş). Lütfen modeli tekrar yükleyip deneyin.");
-                            document.getElementById('loading-ov').style.display = 'none';
-                            return;
-                        }
+                    document.getElementById('loading-text').innerText = "BULUTA YÜKLENİYOR...";
 
-                        await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
-                        await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
-                        
-                        if(variations.length > 0) {
-                            const vBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
-                            await _supabase.storage.from('models').upload(`${name}-vars.json`, vBlob, { upsert: true });
-                        }
+                    // 4. STORAGE YÜKLEME
+                    const { error: storageErr1 } = await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
+                    if (storageErr1) throw new Error("Thumbnail yüklenemedi: " + storageErr1.message);
 
-                        const { error: dbErr } = await _supabase.from('models').upsert([{ 
-                            user_id: user.id, name: name, serial_code: serialCode, exposure: renderer.toneMappingExposure 
-                        }], { onConflict: 'name' });
+                    const { error: storageErr2 } = await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
+                    if (storageErr2) throw new Error("GLB yüklenemedi: " + storageErr2.message);
+                    
+                    if(variations.length > 0) {
+                        const vBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
+                        await _supabase.storage.from('models').upload(`${name}-vars.json`, vBlob, { upsert: true });
+                    }
 
-                        if(dbErr) throw dbErr;
-                        window.location.href = 'dashboard.html';
-                    },
-                    (error) => {
-                        console.error("❌ GLTF Export sırasında hata:", error);
-                        alert("Model paketlenirken bir hata oluştu.");
-                        document.getElementById('loading-ov').style.display = 'none';
-                    },
-                    options
-                );
+                    // 5. VERİTABANI KAYDI
+                    const { error: dbErr } = await _supabase.from('models').upsert([{ 
+                        user_id: user.id, name: name, serial_code: serialCode, exposure: renderer.toneMappingExposure 
+                    }], { onConflict: 'name' });
+
+                    if(dbErr) throw new Error("Veritabanı kaydı başarısız: " + dbErr.message);
+
+                    console.log("✅ Başarıyla kaydedildi!");
+                    window.location.href = 'dashboard.html';
+                }, { binary: true });
+
             } catch (err) { 
-                console.error("Kayıt Hatası:", err);
-                alert("Hata: " + err.message); 
+                console.error("🔥 KAYIT HATASI:", err);
+                alert("SİSTEM DURDU: " + err.message); 
                 document.getElementById('loading-ov').style.display = 'none'; 
             }
         };
@@ -387,8 +380,8 @@
             const { data: glbRes } = _supabase.storage.from('models').getPublicUrl(`${editName}-3d.glb`);
             new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/'))
                 .load(glbRes.publicUrl, (gltf) => {
-                    currentModel = gltf.scene; 
-                    scene.add(currentModel);
+                    currentModel = gltf.scene; scene.add(currentModel);
+                    currentModel.updateMatrixWorld(true);
                     const box = new THREE.Box3().setFromObject(currentModel);
                     const center = box.getCenter(new THREE.Vector3());
                     currentModel.position.set(-center.x, -box.min.y, -center.z);
