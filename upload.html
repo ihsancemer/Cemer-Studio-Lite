@@ -96,6 +96,7 @@
     <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+        import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'; // BUNU YENİ EKLEDİK
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -291,19 +292,39 @@
             if (selectedMesh) selectionBox.setFromObject(selectedMesh);
         }
 
-        document.getElementById('file-input').onchange = (e) => {
+       document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0];
             if(!file) return;
+            
+            document.getElementById('loading-text').innerText = "MODEL AÇILIYOR...";
             document.getElementById('loading-ov').style.display = 'flex';
-            new GLTFLoader().load(URL.createObjectURL(file), (gltf) => {
-                if(currentModel) scene.remove(currentModel);
-                currentModel = gltf.scene;
-                const box = new THREE.Box3().setFromObject(currentModel);
-                const center = box.getCenter(new THREE.Vector3());
-                currentModel.position.set(-center.x, -box.min.y, -center.z);
-                scene.add(currentModel);
-                document.getElementById('loading-ov').style.display = 'none';
-            });
+
+            const loader = new GLTFLoader();
+
+            // DRACO ŞİFRE ÇÖZÜCÜ EKLENDİ
+            const dracoLoader = new DRACOLoader();
+            dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+            loader.setDRACOLoader(dracoLoader);
+
+            loader.load(
+                URL.createObjectURL(file), 
+                (gltf) => {
+                    if(currentModel) scene.remove(currentModel);
+                    currentModel = gltf.scene;
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const center = box.getCenter(new THREE.Vector3());
+                    currentModel.position.set(-center.x, -box.min.y, -center.z);
+                    scene.add(currentModel);
+                    document.getElementById('loading-ov').style.display = 'none';
+                },
+                undefined, // İlerleme (Progress) boş geçiliyor
+                (error) => {
+                    // EĞER MODEL YİNE AÇILMAZSA SEBEBİNİ BURADA SÖYLEYECEK
+                    console.error("Yükleme Hatası:", error);
+                    alert("🚨 MODEL AÇILAMADI:\n" + error.message);
+                    document.getElementById('loading-ov').style.display = 'none';
+                }
+            );
         };
 
         // GÜVENLİ KAYIT SİSTEMİ
