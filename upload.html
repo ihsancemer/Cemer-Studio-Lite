@@ -318,6 +318,14 @@
                 exporter.parse(currentModel, async (buffer) => {
                     const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
                     
+                    // --- KRİTİK: BOŞ DOSYA (15 byte) KONTROLÜ ---
+                    console.log("📦 Hazırlanan GLB Boyutu:", glbBlob.size, "bytes");
+                    if (glbBlob.size < 100) { 
+                        alert("Hata: Model verisi boş veya çok küçük! Lütfen modelin sahnede göründüğünden emin olun.");
+                        document.getElementById('loading-ov').style.display = 'none';
+                        return;
+                    }
+
                     await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
                     await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
                     
