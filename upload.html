@@ -300,47 +300,70 @@
             const name = nameRaw.trim()
                 .toLowerCase()
                 .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                .replace(/[^a-z0-9-]/g, '_') // Harf, rakam ve tire dışındaki her şeyi alt tire yap
-                .replace(/__+/g, '_')      // Ardışık alt tireleri teke indir
-                .replace(/^_|_$/g, '');    // Başta veya sondaki alt tireleri sil
+                .replace(/[^a-z0-9-]/g, '_') 
+                .replace(/__+/g, '_')      
+                .replace(/^_|_$/g, '');    
 
             document.getElementById('save-modal').style.display = 'none';
             document.getElementById('loading-ov').style.display = 'flex';
 
             try {
                 const { data: { user } } = await _supabase.auth.getUser();
+                
+                // --- İYİLEŞTİRME: EXPORT ÖNCESİ DÜNYA MATRİSİNİ GÜNCELLE ---
+                if (currentModel) currentModel.updateMatrixWorld(true);
+                
                 grid.visible = false; selectionBox.visible = false;
                 composer.render();
                 const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
                 grid.visible = true;
 
                 const exporter = new GLTFExporter();
-                exporter.parse(currentModel, async (buffer) => {
-                    const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
-                    
-                    // --- KRİTİK: BOŞ DOSYA (15 byte) KONTROLÜ ---
-                    console.log("📦 Hazırlanan GLB Boyutu:", glbBlob.size, "bytes");
-                    if (glbBlob.size < 100) { 
-                        alert("Hata: Model verisi boş veya çok küçük! Lütfen modelin sahnede göründüğünden emin olun.");
+                
+                // --- İYİLEŞTİRME: GELİŞMİŞ EXPORTER SEÇENEKLERİ ---
+                const options = {
+                    binary: true,
+                    animations: currentModel.animations || [],
+                    includeCustomExtensions: true,
+                    onlyVisible: true
+                };
+
+                exporter.parse(
+                    currentModel, 
+                    async (buffer) => {
+                        const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
+                        
+                        // --- KRİTİK: BOŞ DOSYA (15 byte) KONTROLÜ ---
+                        console.log("📦 Hazırlanan GLB Boyutu:", glbBlob.size, "bytes");
+                        if (glbBlob.size < 100) { 
+                            console.error("❌ Model verisi boş yakalandı!");
+                            alert("Hata: Model dışa aktarılamadı (Dosya boş). Lütfen modeli tekrar yükleyip deneyin.");
+                            document.getElementById('loading-ov').style.display = 'none';
+                            return;
+                        }
+
+                        await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
+                        await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
+                        
+                        if(variations.length > 0) {
+                            const vBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
+                            await _supabase.storage.from('models').upload(`${name}-vars.json`, vBlob, { upsert: true });
+                        }
+
+                        const { error: dbErr } = await _supabase.from('models').upsert([{ 
+                            user_id: user.id, name: name, serial_code: serialCode, exposure: renderer.toneMappingExposure 
+                        }], { onConflict: 'name' });
+
+                        if(dbErr) throw dbErr;
+                        window.location.href = 'dashboard.html';
+                    },
+                    (error) => {
+                        console.error("❌ GLTF Export sırasında hata:", error);
+                        alert("Model paketlenirken bir hata oluştu.");
                         document.getElementById('loading-ov').style.display = 'none';
-                        return;
-                    }
-
-                    await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
-                    await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
-                    
-                    if(variations.length > 0) {
-                        const vBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
-                        await _supabase.storage.from('models').upload(`${name}-vars.json`, vBlob, { upsert: true });
-                    }
-
-                    const { error: dbErr } = await _supabase.from('models').upsert([{ 
-                        user_id: user.id, name: name, serial_code: serialCode, exposure: renderer.toneMappingExposure 
-                    }], { onConflict: 'name' });
-
-                    if(dbErr) throw dbErr;
-                    window.location.href = 'dashboard.html';
-                }, { binary: true });
+                    },
+                    options
+                );
             } catch (err) { 
                 console.error("Kayıt Hatası:", err);
                 alert("Hata: " + err.message); 
@@ -364,7 +387,8 @@
             const { data: glbRes } = _supabase.storage.from('models').getPublicUrl(`${editName}-3d.glb`);
             new GLTFLoader().setDRACOLoader(new DRACOLoader().setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/'))
                 .load(glbRes.publicUrl, (gltf) => {
-                    currentModel = gltf.scene; scene.add(currentModel);
+                    currentModel = gltf.scene; 
+                    scene.add(currentModel);
                     const box = new THREE.Box3().setFromObject(currentModel);
                     const center = box.getCenter(new THREE.Vector3());
                     currentModel.position.set(-center.x, -box.min.y, -center.z);
