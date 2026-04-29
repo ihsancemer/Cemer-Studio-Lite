@@ -18,8 +18,13 @@
         .btn:hover { background: #242428; border-color: var(--accent); transform: translateY(-1px); }
         .btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 800; }
         .label { font-size: 10px; color: #8b8b96; margin-bottom: 6px; display: block; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
-        #loading-ov { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; backdrop-filter: blur(5px); }
+        
+        /* Modal ve Overlay Stilleri */
+        #loading-ov, .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; backdrop-filter: blur(5px); }
+        .modal-backdrop { z-index: 2000; } /* Kayıt modalı en üstte */
+        
         .panel { background: #151518; border: 1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 5px; }
+        
         input[type="color"] { width: 100%; height: 32px; border: none; border-radius: 4px; cursor: pointer; background: none; margin-bottom: 8px; }
         input[type="range"] { width: 100%; margin-bottom: 10px; accent-color: var(--accent); cursor: pointer; }
         input[type="text"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #0d0d0f; color: white; margin-bottom: 8px; box-sizing: border-box; font-size: 12px; font-family: inherit; }
@@ -31,6 +36,23 @@
     </script>
 </head>
 <body>
+
+    <div id="save-modal" class="modal-backdrop">
+        <div class="panel" style="max-width: 360px; width: 90%; padding: 25px;">
+            <div style="font-weight: 800; color: var(--accent); margin-bottom: 20px; font-size: 16px;">KÜTÜPHANEYE KAYDET</div>
+            
+            <label class="label">Ürün İsmi</label>
+            <input type="text" id="save-name" placeholder="Örn: Istanbul Serisi Vapur">
+            
+            <label class="label">Seri Kod / Grup (Sekme Oluşturur)</label>
+            <input type="text" id="save-serial" placeholder="Örn: IST-200 veya Istanbul">
+            
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button class="btn primary" id="btn-confirm-save">KAYDET</button>
+                <button class="btn" onclick="document.getElementById('save-modal').style.display='none'">İPTAL</button>
+            </div>
+        </div>
+    </div>
 
     <div class="topbar">
         <div style="font-weight: 800; font-size: 18px; letter-spacing: 1px;">CEMER <span style="color:var(--accent)">AR STUDIO</span></div>
@@ -122,7 +144,6 @@
         import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
         
-        // Post-Processing Imports (HDR Glow/Bloom ve SoldurmaAlgısı için)
         import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
@@ -137,62 +158,40 @@
         let selectedMesh = null;
         let variations = []; 
         const history = [];
-        
-        // Post-processing değişkenleri
         let composer, bloomPass;
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0d0d0f);
-
             const viewportW = window.innerWidth - 300;
             const viewportH = window.innerHeight - 52;
-
             camera = new THREE.PerspectiveCamera(45, viewportW / viewportH, 0.1, 1000);
             camera.position.set(4, 4, 4);
-
             renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
             renderer.setSize(viewportW, viewportH);
             renderer.setPixelRatio(window.devicePixelRatio);
-            // Standart ACES ToneMapping (Model-viewer ile uyumluluk için)
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.5;
             document.getElementById('container').appendChild(renderer.domElement);
-
             orbit = new OrbitControls(camera, renderer.domElement);
             orbit.enableDamping = true;
-
             const pmrem = new THREE.PMREMGenerator(renderer);
             scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
-
             sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
             sunLight.position.set(5, 8, 5);
             scene.add(sunLight);
             scene.add(new THREE.AmbientLight(0xffffff, 0.4));
-
             grid = new THREE.GridHelper(20, 20, 0x2a2a2e, 0x1a1a1e);
             scene.add(grid);
-
             selectionBox = new THREE.BoxHelper(new THREE.Mesh(), 0x19b0c7);
             selectionBox.visible = false;
             scene.add(selectionBox);
-
-            // POST-PROCESSING SETUP (HDR GLOW)
-            // UnrealBloomPass: Perceived HDR etkisi yaratır, highlights'ları parlatır.
             composer = new EffectComposer(renderer);
             composer.addPass(new RenderPass(scene, camera));
-            
-            // Bloom parametreleri: resolution, strength, radius, threshold
             bloomPass = new UnrealBloomPass( new THREE.Vector2( viewportW, viewportH ), 0.5, 0.4, 0.85 );
             composer.addPass(bloomPass);
-            
-            // Final çıktı pası ( ToneMapping ve Gamma düzeltmeyi composer zincirinin sonuna ekler)
-            const outputPass = new OutputPass();
-            composer.addPass(outputPass);
-
-            // Window Resize Handler (Post-processing Composer'ın çözünürlüğünü günceller)
+            composer.addPass(new OutputPass());
             window.addEventListener('resize', onWindowResize);
-
             setupControls();
             animate();
         }
@@ -209,31 +208,21 @@
         function setupControls() {
             const raycaster = new THREE.Raycaster();
             const mouse = new THREE.Vector2();
-
             document.getElementById('container').addEventListener('pointerdown', (e) => {
                 if (!currentModel) return;
                 const rect = renderer.domElement.getBoundingClientRect();
                 mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
                 mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
                 raycaster.setFromCamera(mouse, camera);
                 const hits = raycaster.intersectObject(currentModel, true);
-
                 if (hits.length > 0) {
                     const obj = hits[0].object;
                     if (obj.isMesh) selectPart(obj);
-                } else {
-                    deselectPart();
-                }
+                } else { deselectPart(); }
             });
-
-            // RENK VE SOLDURMA KONTROLLERİ
             document.getElementById('mesh-color').addEventListener('input', updateSelectedMeshColor);
             document.getElementById('mesh-saturation').addEventListener('input', updateSelectedMeshColor);
-
             document.getElementById('btn-tex').onclick = () => document.getElementById('tex-input').click();
-            
-            // --- TEXTURE (DOKU) YÜKLEME VE AYARLAR ---
             document.getElementById('tex-input').onchange = (e) => {
                 if(!selectedMesh || !e.target.files[0]) return;
                 const reader = new FileReader();
@@ -243,42 +232,29 @@
                     img.onload = () => {
                         const tex = new THREE.Texture(img);
                         tex.colorSpace = THREE.SRGBColorSpace;
-                        tex.flipY = false; // GLTF standardı
-                        
-                        // Doku sündürülmesini engelle ve parçaya yayılmasını sağla
+                        tex.flipY = false;
                         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                        
-                        // ÖNEMLİ: Dokuyu büyütmek için küçük bir repeat değeri veriyoruz (0.05 = 20 Kat Büyük)
                         const s = document.getElementById('tex-scale').value;
                         tex.repeat.set(s, s);
-                        
-                        // Döndürme
                         tex.rotation = THREE.MathUtils.degToRad(document.getElementById('tex-rotate').value);
                         tex.needsUpdate = true;
-                        
-                        // Kaydetme zincirine değişiklikleri ekle (save() parse ederken cloned material'ı okur)
                         selectedMesh.material.map = tex;
                         selectedMesh.material.needsUpdate = true; 
                     };
                 };
                 reader.readAsDataURL(e.target.files[0]);
             };
-
-            // Doku Ölçeği (Büyüklük) Değişince Anlık Güncelle
             document.getElementById('tex-scale').oninput = (e) => {
                 if(selectedMesh && selectedMesh.material.map) {
                     const s = parseFloat(e.target.value);
                     selectedMesh.material.map.repeat.set(s, s);
                 }
             };
-            
-            // Doku Döndürme Değişince Anlık Güncelle (Kaydettiğinde GLB'ye yüklenir)
             document.getElementById('tex-rotate').oninput = (e) => {
                 if(selectedMesh && selectedMesh.material.map) {
                     selectedMesh.material.map.rotation = THREE.MathUtils.degToRad(e.target.value);
                 }
             };
-
             document.getElementById('mesh-opacity').addEventListener('input', (e) => {
                 if(!selectedMesh) return;
                 const v = parseFloat(e.target.value);
@@ -286,19 +262,16 @@
                 selectedMesh.material.opacity = v;
                 selectedMesh.material.depthWrite = v === 1;
             });
-
             document.getElementById('mesh-metal').addEventListener('input', (e) => {
                 if(!selectedMesh) return;
                 selectedMesh.material.metalness = parseFloat(e.target.value);
                 selectedMesh.material.roughness = 1.0 - (parseFloat(e.target.value) * 0.7);
             });
-
             document.getElementById('btn-delete').onclick = () => {
                 if(!selectedMesh) return;
                 selectedMesh.removeFromParent();
                 deselectPart();
             };
-
             document.getElementById('btn-cm').onclick = () => { if(currentModel) currentModel.scale.multiplyScalar(0.01); };
             document.getElementById('btn-mm').onclick = () => { if(currentModel) currentModel.scale.multiplyScalar(0.001); };
             document.getElementById('btn-rotate').onclick = () => { if(currentModel) currentModel.rotation.y += Math.PI / 2; };
@@ -307,53 +280,37 @@
                 const box = new THREE.Box3().setFromObject(currentModel);
                 currentModel.position.y -= box.min.y;
             };
-
-            // ORTAM VE HDR KONTROLLERİ
             document.getElementById('in-exp').oninput = (e) => renderer.toneMappingExposure = parseFloat(e.target.value);
             document.getElementById('in-sun').oninput = (e) => {
                 const angle = parseFloat(e.target.value) * (Math.PI / 180);
                 sunLight.position.set(Math.cos(angle) * 10, 8, Math.sin(angle) * 10);
             };
-            
-            // HDR Glow (Bloom) Kontrolleri
             document.getElementById('bloom-strength').oninput = (e) => bloomPass.strength = parseFloat(e.target.value);
             document.getElementById('bloom-radius').oninput = (e) => bloomPass.radius = parseFloat(e.target.value);
-
-            // --- VARYASYON EKLEME - DÜZELTİLDİ ---
             document.getElementById('btn-add-var').onclick = () => {
                 if(!currentModel) return;
                 const vName = document.getElementById('var-name').value || `Varyasyon ${variations.length + 1}`;
                 const config = {};
-                
                 currentModel.traverse(m => {
-                    // Materyal ismine göre kayıt yapıyoruz (Viewer bu ismi arar)
                     if(m.isMesh && m.material && m.material.name) {
                         const c = m.material.color;
-                        // Viewer'ın AR'da da okuyabileceği RGBA Dizisi [R, G, B, Opacity]
                         config[m.material.name] = [c.r, c.g, c.b, m.material.opacity || 1];
                     }
                 });
-                
                 variations.push({ name: vName, colors: config });
                 renderVars();
                 document.getElementById('var-name').value = '';
             };
         }
         
-        // Renk Seçici ve Satürasyon (Soldurma) Sürgüsünü Birleştirir
         function updateSelectedMeshColor() {
             if(!selectedMesh) return;
             const hex = document.getElementById('mesh-color').value;
             const saturationFactor = parseFloat(document.getElementById('mesh-saturation').value);
-            
             const color = new THREE.Color(hex);
-            
-            // HSL'e çevir, satürasyonu uygula, geri çevir
             const hsl = {};
             color.getHSL(hsl);
-            // Satürasyon 0 ise tam soluk (gri), 1 ise orijinal hex rengi
             color.setHSL(hsl.h, saturationFactor, hsl.l);
-            
             selectedMesh.material.color.copy(color);
         }
 
@@ -379,26 +336,17 @@
             selectionBox.visible = true;
             document.getElementById('mesh-panel').style.display = 'block';
             document.getElementById('mesh-name').innerText = mesh.name || "Mesh";
-            
-            // Mevcut renk Hex'ini ve HSL satürasyonunu UI'a yükle (soldurma algısı için)
             const materialColor = selectedMesh.material.color;
             document.getElementById('mesh-color').value = "#" + materialColor.getHexString();
-            
             const hsl = {};
             materialColor.getHSL(hsl);
-            document.getElementById('mesh-saturation').value = hsl.s; // Satürasyon değeri sürgüye yansır
-
+            document.getElementById('mesh-saturation').value = hsl.s;
             document.getElementById('mesh-opacity').value = selectedMesh.material.opacity || 1;
             document.getElementById('mesh-metal').value = selectedMesh.material.metalness || 0;
-            
-            // Doku varsa ayarlarını slider'lara yansıt
             if(selectedMesh.material.map) {
                 const map = selectedMesh.material.map;
-                document.getElementById('tex-scale').value = map.repeat.x; // scale
-                document.getElementById('tex-rotate').value = THREE.MathUtils.radToDeg(map.rotation); // rotate
-            } else {
-                document.getElementById('tex-scale').value = 0.05;
-                document.getElementById('tex-rotate').value = 0;
+                document.getElementById('tex-scale').value = map.repeat.x;
+                document.getElementById('tex-rotate').value = THREE.MathUtils.radToDeg(map.rotation);
             }
         }
 
@@ -408,37 +356,25 @@
             document.getElementById('mesh-panel').style.display = 'none';
         }
 
-        // --- MODEL YÜKLEME VE BUG ÇÖZÜMÜ ---
         document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0];
             if(!file) return;
-            
             document.getElementById('loading-text').innerText = "MODEL AÇILIYOR...";
             document.getElementById('loading-ov').style.display = 'flex';
-
             const loader = new GLTFLoader();
             const dracoLoader = new DRACOLoader();
-            // DRACO Path CDN uyuşmazlığı yaşamamak için npm üzerindeki path'e yönlendirildi
             dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/');
             loader.setDRACOLoader(dracoLoader);
-
-            loader.load(
-                URL.createObjectURL(file), 
-                (gltf) => {
+            loader.load(URL.createObjectURL(file), (gltf) => {
                     if(currentModel) scene.remove(currentModel);
                     currentModel = gltf.scene;
                     const box = new THREE.Box3().setFromObject(currentModel);
                     const center = box.getCenter(new THREE.Vector3());
                     currentModel.position.set(-center.x, -box.min.y, -center.z);
                     scene.add(currentModel);
-                    
-                    // Bug Çözümü: Input değerini sıfırla ki aynı dosya tekrar seçilebilsin
                     e.target.value = ""; 
                     document.getElementById('loading-ov').style.display = 'none';
-                },
-                undefined,
-                (error) => {
-                    console.error("Yükleme Hatası:", error);
+                }, undefined, (error) => {
                     alert("🚨 MODEL AÇILAMADI:\n" + error.message);
                     e.target.value = "";
                     document.getElementById('loading-ov').style.display = 'none';
@@ -446,90 +382,73 @@
             );
         };
 
-        // GÜVENLİ KAYIT SİSTEMİ
-        document.getElementById('btn-save').onclick = async () => {
+        // --- YENİ KAYIT SİSTEMİ ---
+        document.getElementById('btn-save').onclick = () => {
             if(!currentModel) return;
-            
-            const nameRaw = prompt("Model İsmi Girin (Örn: cemer_kaydirak):", "cemer_model");
-            if(!nameRaw) return;
-            
-            const name = nameRaw.trim()
-                .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
-                .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                .replace(/İ/g, 'i').replace(/Ğ/g, 'g').replace(/Ü/g, 'u')
-                .replace(/Ş/g, 's').replace(/Ö/g, 'o').replace(/Ç/g, 'c')
-                .replace(/\s+/g, '_')
-                .toLowerCase();
+            document.getElementById('save-modal').style.display = 'flex';
+        };
 
+        document.getElementById('btn-confirm-save').onclick = async () => {
+            const nameRaw = document.getElementById('save-name').value;
+            const serialCode = document.getElementById('save-serial').value.trim();
+            
+            if(!nameRaw || !serialCode) { alert("Lütfen Ürün İsmi ve Seri Kodunu doldurun!"); return; }
+
+            const name = nameRaw.trim()
+                .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/İ/g, 'i').replace(/Ğ/g, 'g').replace(/Ü/g, 'u').replace(/Ş/g, 's').replace(/Ö/g, 'o').replace(/Ç/g, 'c')
+                .replace(/\s+/g, '_').toLowerCase();
+
+            document.getElementById('save-modal').style.display = 'none';
             document.getElementById('loading-ov').style.display = 'flex';
             document.getElementById('loading-text').innerText = "KÜTÜPHANEYE KAYDEDİLİYOR...";
 
             try {
                 const { data: { user } } = await _supabase.auth.getUser();
-                if(!user) throw new Error("Oturum bulunamadı. Lütfen tekrar giriş yapın.");
-                
-                // Thumbnail (Önizleme) Yakala (HDR Glow ile birlikte)
+                if(!user) throw new Error("Oturum bulunamadı!");
+
                 grid.visible = false; selectionBox.visible = false;
-                // Post-processing'li sahneyi Render et (Thumbnail parlasın diye)
                 composer.render();
-                // Rendered Canvas'tan resmi çek
                 const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
                 grid.visible = true;
 
-                // GLB Olarak Dışa Aktar (Kaydedildiğinde Modele Yüklenir: Renkler, Opaklık, Doku Döndürme vs.)
-                // GLTFExporter post-processing efektlerini (parlamayı) kaydetmez. Sadece mesh ve materyal özelliklerini kaydeder.
                 const exporter = new GLTFExporter();
-                exporter.parse(
-                    currentModel, 
-                    async (buffer) => {
-                        if (!(buffer instanceof ArrayBuffer)) {
-                            alert("🚨 EXPORT HATASI: Model Binary formata çevrilemedi!");
-                            document.getElementById('loading-ov').style.display = 'none';
-                            return;
+                exporter.parse(currentModel, async (buffer) => {
+                    try {
+                        const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
+                        await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
+                        await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
+                        
+                        if(variations.length > 0) {
+                            const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
+                            await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
                         }
 
-                        try {
-                            const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
-                            await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
-                            await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
-                            
-                            if(variations.length > 0) {
-                                const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
-                                await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
-                            }
+                        // DB'ye serial_code ile birlikte kaydet
+                        await _supabase.from('models').insert([{
+                            user_id: user.id,
+                            name: name,
+                            serial_code: serialCode, // Yeni sütuna kayıt
+                            exposure: renderer.toneMappingExposure,
+                            shadow_intensity: 1.0
+                        }]);
 
-                            // DB'ye kaydet (Buraya bloom settings de eklenebilir ama model-viewer native desteklemez)
-                            await _supabase.from('models').insert([{
-                                user_id: user.id,
-                                name: name,
-                                exposure: renderer.toneMappingExposure, //saves dynamic exposure
-                                shadow_intensity: 1.0
-                            }]);
-
-                            alert("🎉 Başarıyla kütüphaneye eklendi!");
-                            window.location.href = 'dashboard.html';
-                        } catch (innerErr) {
-                            alert("🚨 YÜKLEME İPTAL EDİLDİ:\n" + innerErr.message);
-                            document.getElementById('loading-ov').style.display = 'none';
-                        }
-                    }, 
-                    function (error) { 
-                        alert("🚨 3D DÖNÜŞTÜRME HATASI:\n" + error);
+                        alert("🎉 " + name + " Başarıyla kütüphaneye eklendi!");
+                        window.location.href = 'dashboard.html';
+                    } catch (innerErr) {
+                        alert("🚨 HATA:\n" + innerErr.message);
                         document.getElementById('loading-ov').style.display = 'none';
-                    }, 
-                    { binary: true } 
-                );
+                    }
+                }, undefined, { binary: true });
             } catch (err) {
                 alert("🚨 SİSTEM HATASI:\n" + err.message);
                 document.getElementById('loading-ov').style.display = 'none';
             }
         };
 
-        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             if (orbit) orbit.update();
-            // Artık renderer.render() değil, post-processing composer'ı render ediyor (Glow için)
             if (composer) composer.render();
         }
 
