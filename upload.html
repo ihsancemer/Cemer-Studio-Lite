@@ -226,7 +226,7 @@
                 currentModel = gltf.scene;
                 scene.add(currentModel);
                 
-                // Matrisleri dondur ki exporter hata yapmasın
+                // Matrisleri hemen güncelle ki sahnede yerleşsin
                 currentModel.updateMatrixWorld(true);
                 
                 const box = new THREE.Box3().setFromObject(currentModel);
@@ -310,56 +310,64 @@
             document.getElementById('loading-text').innerText = "MODEL PAKETLENİYOR...";
 
             try {
-                // 1. OTURUM KONTROLÜ
                 const { data: { user }, error: authErr } = await _supabase.auth.getUser();
-                if (authErr || !user) throw new Error("Oturum kapalı! Lütfen tekrar giriş yapın.");
+                if (authErr || !user) throw new Error("Oturum hatası! Tekrar giriş yapın.");
 
-                // 2. MODEL HAZIRLIĞI
-                if (!currentModel) throw new Error("Sahne boş! Önce bir model açın.");
-                currentModel.updateMatrixWorld(true);
+                if (!currentModel) throw new Error("Sahne boş!");
                 
-                // Grid ve yardımcıları gizle (Thumbnail temiz çıksın)
+                // --- İYİLEŞTİRME: EXPORT ÖNCESİ MATRİSLERİ ZORLA GÜNCELLE ---
+                currentModel.updateMatrixWorld(true);
+                currentModel.traverse(child => { if(child.isMesh) child.updateMatrixWorld(true); });
+
                 grid.visible = false; selectionBox.visible = false;
                 composer.render();
                 const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
                 grid.visible = true;
 
-                // 3. EXPORT SÜRECİ
                 const exporter = new GLTFExporter();
+                
+                // --- İYİLEŞTİRME: GELİŞMİŞ EXPORT PARAMETRELERİ ---
+                const exportOptions = {
+                    binary: true,
+                    animations: currentModel.animations || [],
+                    includeCustomExtensions: true,
+                    onlyVisible: true
+                };
+
                 exporter.parse(currentModel, async (buffer) => {
+                    if (!buffer || buffer.byteLength < 100) {
+                         console.error("❌ Export başarısız, buffer boş!");
+                         alert("Hata: Model dışa aktarılamadı (15 byte sorunu).");
+                         document.getElementById('loading-ov').style.display = 'none';
+                         return;
+                    }
+
                     const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
-                    
-                    console.log("🛠️ Paketlenen GLB Boyutu:", glbBlob.size, "bytes");
-                    if (glbBlob.size < 100) throw new Error("Paketleme hatası: Model verisi boş çıktı (15 byte sorunu)!");
+                    console.log("📦 Final Paket Boyutu:", glbBlob.size, "bytes");
 
                     document.getElementById('loading-text').innerText = "BULUTA YÜKLENİYOR...";
 
-                    // 4. STORAGE YÜKLEME
-                    const { error: storageErr1 } = await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
-                    if (storageErr1) throw new Error("Thumbnail yüklenemedi: " + storageErr1.message);
-
-                    const { error: storageErr2 } = await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
-                    if (storageErr2) throw new Error("GLB yüklenemedi: " + storageErr2.message);
+                    await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
+                    await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
                     
                     if(variations.length > 0) {
                         const vBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
                         await _supabase.storage.from('models').upload(`${name}-vars.json`, vBlob, { upsert: true });
                     }
 
-                    // 5. VERİTABANI KAYDI
                     const { error: dbErr } = await _supabase.from('models').upsert([{ 
                         user_id: user.id, name: name, serial_code: serialCode, exposure: renderer.toneMappingExposure 
                     }], { onConflict: 'name' });
 
-                    if(dbErr) throw new Error("Veritabanı kaydı başarısız: " + dbErr.message);
-
-                    console.log("✅ Başarıyla kaydedildi!");
+                    if(dbErr) throw dbErr;
                     window.location.href = 'dashboard.html';
-                }, { binary: true });
+                }, (err) => {
+                    console.error("Export hatası:", err);
+                }, exportOptions);
 
             } catch (err) { 
                 console.error("🔥 KAYIT HATASI:", err);
-                alert("SİSTEM DURDU: " + err.message); 
+                alert("Hata: " + err.message); 
                 document.getElementById('loading-ov').style.display = 'none'; 
             }
         };
