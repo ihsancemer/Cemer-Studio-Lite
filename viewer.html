@@ -106,130 +106,90 @@
 
 <script>
     const params = new URLSearchParams(window.location.search);
-    
-    // 1. DASHBOARD'DAN GELEN İSMİ AL VE UPLOAD İLE AYNI MANTIKTA TEMİZLE
     const rawId = decodeURIComponent(params.get('model') || params.get('id') || "");
-    
-    // Bu kısım Upload tarafındaki temizleme motoruyla %100 aynı:
-    // Küçük harf yapar, Türkçe karakterleri İngilizceye çevirir ve boşlukları alt tireye bağlar.
-    const modelId = rawId.trim()
-        .toLowerCase()
+
+    // İSİM TEMİZLEME (Upload ile tam uyumlu)
+    const modelId = rawId.trim().toLowerCase()
         .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-        .replace(/[^a-z0-9]/g, '_')
-        .replace(/__+/g, '_')
-        .replace(/^_|_$/g, '');
+        .replace(/[^a-z0-9]/g, '_').replace(/__+/g, '_').replace(/^_|_$/g, '');
 
     const mv = document.getElementById('mv');
-    const statusOv = document.getElementById('status-ov');
-    const loadFill = document.getElementById('load-fill');
-    const errorCard = document.getElementById('error-card');
+    const bucketPath = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/`;
 
     if (!modelId) {
-        showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullanın.");
+        showError("Bağlantı Eksik", "Ürün ismi bulunamadı.");
     } else {
-        // 2. URL YAPILANDIRMASI
-        const bucketPath = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/`;
-        const modelUrl = `${bucketPath}${modelId}-3d.glb`;
-        const varsUrl = `${bucketPath}${modelId}-vars.json`;
+        // --- DÜZELTME: SONDAN ?t=... KISMINI KALDIRDIK (400 HATASI İÇİN) ---
+        const modelUrl = `${bucketPath}${modelId}-3d.glb`; 
+        const varsUrl = `${bucketPath}${modelId}-vars.json`; 
         
-        console.log("🔍 PepperAR Sorgulanan Model ID:", modelId);
-        console.log("🚀 Viewer'ın Aradığı Tam URL:", modelUrl);
+        console.log("🚀 İstek Atılan GLB:", modelUrl);
         
-        // Modeli yükle
         mv.src = modelUrl;
-        
-        // iOS için otomatik USDZ üretimini tetiklemek adına ios-src'yi temizliyoruz
         mv.removeAttribute('ios-src'); 
 
-        // Varyasyonları yükle
+        // Varyasyonları yükle (İçerideki fetch'ten de ?t= kaldırıldı)
         loadVariations(varsUrl);
 
-        // Yükleme ilerleme takibi
         mv.addEventListener('progress', (ev) => {
             const progress = ev.detail.totalProgress * 100;
-            if (loadFill) loadFill.style.width = `${progress}%`;
+            if (document.getElementById('load-fill')) document.getElementById('load-fill').style.width = `${progress}%`;
         });
 
-        // Başarılı yükleme
         mv.addEventListener('load', () => {
-            console.log("✅ Model başarıyla sahneye yüklendi.");
+            console.log("✅ Model başarıyla yüklendi.");
+            const statusOv = document.getElementById('status-ov');
             if (statusOv) {
                 statusOv.style.opacity = '0';
                 setTimeout(() => statusOv.style.display = 'none', 500);
             }
-            const arBtn = document.getElementById('ar-trigger');
-            if (arBtn) arBtn.style.display = 'flex';
         });
 
-        // Hata yönetimi
+        // KRİTİK: Sadece GLB yüklenemezse hata göster
         mv.addEventListener('error', (e) => {
-            console.error("❌ Model Viewer Hatası:", e);
-            showError("Model Bulunamadı", 
-                `"${modelId}-3d.glb" dosyasına erişilemiyor. \n\n` + 
-                `İpucu: Dashboard'daki ürün isminin Storage'daki dosya ismiyle birebir aynı olduğundan emin olun.`
-            );
+            console.error("❌ Model Yükleme Hatası:", e);
+            showError("Model Bulunamadı", `"${modelId}" dosyasına erişilemiyor.\nSunucu 400/404 hatası döndürdü.`);
         });
     }
 
-    // Varyasyonları dosyadan çekme
     async function loadVariations(url) {
         try {
-            // Önbellek sorununu önlemek için zaman damgası (Date.now) ekliyoruz
-            const response = await fetch(`${url}?t=${Date.now()}`);
-            if (!response.ok) {
-                console.log("ℹ️ Bu ürün için varyasyon dosyası (.json) bulunamadı.");
-                return; 
+            // DÜZELTME: URL'den parametreyi temizledik
+            const res = await fetch(url);
+            if (!res.ok) {
+                console.warn("ℹ️ Varyasyon dosyası bulunamadı, bu bir hata değildir.");
+                return;
             }
-            const vars = await response.json();
-            if (!vars || vars.length === 0) return;
-            
+            const vars = await res.json();
             const container = document.getElementById('variant-list');
-            if (!container) return;
-
-            container.innerHTML = ""; // Önceki varyasyonları temizle
-            vars.forEach((v) => {
+            if (!container || !vars) return;
+            
+            container.innerHTML = "";
+            vars.forEach(v => {
                 const btn = document.createElement('button');
-                btn.className = `variant-btn`;
+                btn.className = 'variant-btn';
                 btn.innerText = v.name;
-                btn.onclick = () => applyVariation(v.colors, btn);
+                btn.onclick = () => {
+                    if (!mv.model) return;
+                    for (const mat of mv.model.materials) {
+                        if (v.colors[mat.name]) mat.pbrMetallicRoughness.setBaseColorFactor(v.colors[mat.name]);
+                    }
+                };
                 container.appendChild(btn);
             });
         } catch (e) { 
-            console.warn("⚠️ Varyasyon yükleme sırasında hata oluştu veya dosya yok."); 
+            console.log("Varyasyon dosyası yok veya yüklenemedi."); 
         }
     }
 
-    // Seçilen varyasyonu modele uygula
-    function applyVariation(colorMap, clickedBtn) {
-        document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
-        clickedBtn.classList.add('active');
-
-        if (!mv.model) {
-            console.error("Model henüz hazır değil.");
-            return;
-        }
-
-        // Malzeme bazlı renk değişimi
-        for (const material of mv.model.materials) {
-            if (colorMap[material.name]) {
-                // Kaydedilen [r, g, b, a] dizisini uygula
-                material.pbrMetallicRoughness.setBaseColorFactor(colorMap[material.name]);
-            }
-        }
-    }
-
-    // Hata mesajı gösterme fonksiyonu
     function showError(title, desc) {
-        if (document.getElementById('main-spinner')) document.getElementById('main-spinner').style.display = 'none';
-        if (document.getElementById('load-bar')) document.getElementById('load-bar').style.display = 'none';
-        if (document.getElementById('status-text')) document.getElementById('status-text').style.display = 'none';
-        
+        const errorCard = document.getElementById('error-card');
         if (errorCard) {
             errorCard.style.display = 'block';
             errorCard.querySelector('h3').innerText = title;
-            const descEl = document.getElementById('error-desc');
-            if (descEl) descEl.innerText = `${desc}\n\nAranan dosya: ${modelId}-3d.glb`;
+            document.getElementById('error-desc').innerText = desc;
         }
+        if (document.getElementById('main-spinner')) document.getElementById('main-spinner').style.display = 'none';
     }
 </script>
 </body>
