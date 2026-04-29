@@ -108,7 +108,7 @@
     const params = new URLSearchParams(window.location.search);
     const rawId = decodeURIComponent(params.get('model') || params.get('id') || "");
 
-    // İSİM TEMİZLEME (Upload ile tam uyumlu)
+    // İSİM TEMİZLEME (Upload ile %100 senkronize)
     const modelId = rawId.trim().toLowerCase()
         .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
         .replace(/[^a-z0-9]/g, '_').replace(/__+/g, '_').replace(/^_|_$/g, '');
@@ -119,16 +119,17 @@
     if (!modelId) {
         showError("Bağlantı Eksik", "Ürün ismi bulunamadı.");
     } else {
-        // --- DÜZELTME: SONDAN ?t=... KISMINI KALDIRDIK (400 HATASI İÇİN) ---
+        // --- DÜZELTME: PARAMETRESİZ TEMİZ URL ---
         const modelUrl = `${bucketPath}${modelId}-3d.glb`; 
-        const varsUrl = `${bucketPath}${modelId}-vars.json`; 
+        const varsUrl = `${bucketPath}${modelId}-vars.json?t=${Date.now()}`; 
         
-        console.log("🚀 İstek Atılan GLB:", modelUrl);
+        console.log("🚀 PepperAR Arama Yapıyor:", modelUrl);
         
+        // Modeli yükle
         mv.src = modelUrl;
         mv.removeAttribute('ios-src'); 
 
-        // Varyasyonları yükle (İçerideki fetch'ten de ?t= kaldırıldı)
+        // Varyasyonları yükle
         loadVariations(varsUrl);
 
         mv.addEventListener('progress', (ev) => {
@@ -145,25 +146,20 @@
             }
         });
 
-        // KRİTİK: Sadece GLB yüklenemezse hata göster
+        // GLTF yükleme hatası kontrolü
         mv.addEventListener('error', (e) => {
             console.error("❌ Model Yükleme Hatası:", e);
-            showError("Model Bulunamadı", `"${modelId}" dosyasına erişilemiyor.\nSunucu 400/404 hatası döndürdü.`);
+            showError("Model Bulunamadı", `"${modelId}" dosyasına ulaşılamıyor.\nSunucudan hatalı yanıt geldi (400/404).`);
         });
     }
 
     async function loadVariations(url) {
         try {
-            // DÜZELTME: URL'den parametreyi temizledik
             const res = await fetch(url);
-            if (!res.ok) {
-                console.warn("ℹ️ Varyasyon dosyası bulunamadı, bu bir hata değildir.");
-                return;
-            }
+            if (!res.ok) return;
             const vars = await res.json();
             const container = document.getElementById('variant-list');
             if (!container || !vars) return;
-            
             container.innerHTML = "";
             vars.forEach(v => {
                 const btn = document.createElement('button');
@@ -177,9 +173,7 @@
                 };
                 container.appendChild(btn);
             });
-        } catch (e) { 
-            console.log("Varyasyon dosyası yok veya yüklenemedi."); 
-        }
+        } catch (e) { console.warn("Varyasyon dosyası yok veya bozuk."); }
     }
 
     function showError(title, desc) {
