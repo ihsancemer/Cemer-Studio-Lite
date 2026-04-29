@@ -14,18 +14,17 @@
         .sidebar { width: 300px; background: var(--bg1); border-right: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; }
         .viewport { flex: 1; position: relative; background: #000; outline: none; }
         canvas { display: block; }
-        .btn { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: #1c1c1f; color: white; cursor: pointer; font-size: 11px; transition: 0.2s; width: 100%; text-align: center; font-weight: 500; }
-        .btn:hover { background: #242428; border-color: var(--accent); }
-        .btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 700; }
-        .label { font-size: 10px; color: #8b8b96; margin-bottom: 4px; display: block; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; }
-        #loading-ov { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; }
-        .panel { background: #151518; border: 1px solid var(--border); padding: 10px; border-radius: 8px; margin-bottom: 5px; }
-        .mesh-title { font-size: 11px; font-weight: 700; color: var(--accent); margin-bottom: 8px; word-break: break-all; }
-        input[type="color"] { width: 100%; height: 28px; border: none; border-radius: 4px; cursor: pointer; background: none; margin-bottom: 8px; }
-        input[type="range"] { width: 100%; margin-bottom: 8px; accent-color: var(--accent); }
-        input[type="text"] { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border); background: #0d0d0f; color: white; margin-bottom: 8px; box-sizing: border-box; font-size: 11px;}
-        .var-item { background: #1a1a1e; padding: 6px 10px; border-radius: 4px; border-left: 3px solid var(--accent); font-size: 11px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; }
-        .btn-del-var { background: none; border: none; color: #ef4444; cursor: pointer; font-weight: bold; }
+        .btn { padding: 10px 12px; border-radius: 6px; border: 1px solid var(--border); background: #1c1c1f; color: white; cursor: pointer; font-size: 11px; transition: 0.2s; width: 100%; text-align: center; font-weight: 600; font-family: inherit; }
+        .btn:hover { background: #242428; border-color: var(--accent); transform: translateY(-1px); }
+        .btn.primary { background: var(--accent); border-color: var(--accent); color: #000; font-weight: 800; }
+        .label { font-size: 10px; color: #8b8b96; margin-bottom: 6px; display: block; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; }
+        #loading-ov { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; backdrop-filter: blur(5px); }
+        .panel { background: #151518; border: 1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 5px; }
+        input[type="color"] { width: 100%; height: 32px; border: none; border-radius: 4px; cursor: pointer; background: none; margin-bottom: 8px; }
+        input[type="range"] { width: 100%; margin-bottom: 10px; accent-color: var(--accent); cursor: pointer; }
+        input[type="text"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #0d0d0f; color: white; margin-bottom: 8px; box-sizing: border-box; font-size: 12px; font-family: inherit; }
+        .var-item { background: #1a1a1e; padding: 8px 12px; border-radius: 4px; border-left: 3px solid var(--accent); font-size: 11px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+        .btn-del-var { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; }
     </style>
     <script type="importmap">
         { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/" } }
@@ -34,39 +33,49 @@
 <body>
 
     <div class="topbar">
-        <div style="font-weight: 800; font-size: 16px; letter-spacing: 1px;">CEMER <span style="color:var(--accent)">AR STUDIO</span></div>
+        <div style="font-weight: 800; font-size: 18px; letter-spacing: 1px;">CEMER <span style="color:var(--accent)">AR STUDIO</span></div>
         <div style="flex:1"></div>
         <input type="file" id="file-input" accept=".glb" style="display:none">
-        <button class="btn" style="width:auto" onclick="document.getElementById('file-input').click()">📁 Model Aç</button>
-        <button class="btn primary" style="width:auto" id="btn-save">☁️ Kütüphaneye Kaydet</button>
+        <button class="btn" style="width:auto" onclick="document.getElementById('file-input').click()">📂 Model Aç</button>
+        <button class="btn primary" style="width:auto; margin-left:8px;" id="btn-save">☁️ Kütüphaneye Kaydet</button>
     </div>
 
     <div class="workspace">
         <div class="sidebar">
             <div class="panel">
                 <span class="label">Renk Varyasyonları</span>
-                <input type="text" id="var-name" placeholder="Örn: Mavi-Beyaz Kombin">
-                <button class="btn" id="btn-add-var">➕ Mevcut Renkleri Varyasyon Yap</button>
+                <input type="text" id="var-name" placeholder="Varyasyon İsmi...">
+                <button class="btn" id="btn-add-var">➕ Varyasyon Olarak Kaydet</button>
                 <div id="var-list" style="margin-top:10px"></div>
             </div>
 
             <div class="panel">
-                <span class="label">Transform</span>
-                <div style="display:flex; gap:5px; margin-bottom:5px">
+                <span class="label">Ölçek ve Yönlendirme</span>
+                <div style="display:flex; gap:5px; margin-bottom:8px">
                     <button class="btn" id="btn-cm">CM ➔ M</button>
                     <button class="btn" id="btn-mm">MM ➔ M</button>
                 </div>
                 <button class="btn" id="btn-rotate">🔄 90° Çevir</button>
-                <button class="btn" id="btn-snap" style="margin-top:5px">⬇️ Zemine Hizala</button>
+                <button class="btn" id="btn-snap" style="margin-top:6px">⬇️ Zemine Hizala</button>
             </div>
             
             <div id="mesh-panel" class="panel" style="display:none;">
                 <span class="label">Seçili Parça: <span id="mesh-name" style="color:var(--accent)">-</span></span>
-                <span class="label">Renk</span>
-                <input type="color" id="mesh-color">
+                <span class="label">Renk ve Soldurma</span>
+                <div style="display:flex; gap:8px; align-items:center;">
+                    <input type="color" id="mesh-color" style="flex:1; margin-bottom:0">
+                    <input type="range" id="mesh-saturation" min="0" max="1" step="0.05" value="1" title="Satürasyon (Soldurma)" style="flex:1; margin-bottom:0">
+                </div>
 
+                <span class="label" style="margin-top:10px">Doku (Texture) Ayarları</span>
                 <input type="file" id="tex-input" accept="image/*" style="display:none">
-                <button class="btn" id="btn-tex" style="margin-bottom:8px">🖼️ Doku (Texture) Yükle</button>
+                <button class="btn" id="btn-tex" style="margin-bottom:12px">🖼️ Yeni Doku Yükle</button>
+                
+                <span class="label">Doku Ölçeği (Büyüklük)</span>
+                <input type="range" id="tex-scale" min="0.01" max="0.5" step="0.01" value="0.05">
+                
+                <span class="label">Doku Döndürme (Rotate)</span>
+                <input type="range" id="tex-rotate" min="0" max="360" step="1" value="0">
                 
                 <span class="label">Opaklık</span>
                 <input type="range" id="mesh-opacity" min="0" max="1" step="0.05" value="1">
@@ -74,24 +83,37 @@
                 <span class="label">Metalik</span>
                 <input type="range" id="mesh-metal" min="0" max="1" step="0.05" value="0">
                 
-                <button class="btn" style="border-color:#ef4444; color:#ef4444; margin-top: 5px;" id="btn-delete">🗑️ Parçayı Sil</button>
+                <button class="btn" style="border-color:#ef4444; color:#ef4444; margin-top: 8px; background:rgba(239,68,68,0.05)" id="btn-delete">🗑️ Parçayı Sil</button>
             </div>
 
             <div class="panel">
-                <span class="label">Ortam ve Işık</span>
-                <span class="label">Işık Gücü</span>
+                <span class="label">Sahne Işığı ve HDR</span>
+                <span class="label">Exposure (Pozlama)</span>
                 <input type="range" id="in-exp" min="0.1" max="4" step="0.1" value="1.5">
                 <span class="label">Güneş Açısı</span>
                 <input type="range" id="in-sun" min="0" max="360" step="1" value="45">
+                
+                <span class="label" style="margin-top:10px">HDR Glow (Perceived HDR Bloom)</span>
+                <span class="label">Parlaklık Gücü</span>
+                <input type="range" id="bloom-strength" min="0" max="2" step="0.1" value="0.5">
+                <span class="label">Yansıma Yarıçapı</span>
+                <input type="range" id="bloom-radius" min="0" max="1" step="0.05" value="0.4">
             </div>
         </div>
         
         <div class="viewport" id="container" tabindex="0">
             <div id="loading-ov">
-                <div style="color:var(--accent); font-weight:800; font-size: 20px;" id="loading-text">İŞLENİYOR...</div>
+                <div class="spinner"></div>
+                <div style="color:var(--accent); font-weight:800; font-size: 18px; margin-top:15px;" id="loading-text">SİSTEM İŞLENİYOR...</div>
             </div>
         </div>
     </div>
+
+    <style>
+        .spinner { border: 3px solid rgba(25,176,199,0.1); border-left-color: var(--accent); border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+
 <script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
@@ -99,6 +121,12 @@
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+        
+        // Post-Processing Imports (HDR Glow/Bloom ve SoldurmaAlgısı için)
+        import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+        import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
         const _supabase = window.supabase.createClient(
             'https://uoqojtynnarfpidrbinj.supabase.co',
@@ -109,16 +137,24 @@
         let selectedMesh = null;
         let variations = []; 
         const history = [];
+        
+        // Post-processing değişkenleri
+        let composer, bloomPass;
 
         function init() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0d0d0f);
 
-            camera = new THREE.PerspectiveCamera(45, (window.innerWidth - 300) / (window.innerHeight - 52), 0.1, 1000);
+            const viewportW = window.innerWidth - 300;
+            const viewportH = window.innerHeight - 52;
+
+            camera = new THREE.PerspectiveCamera(45, viewportW / viewportH, 0.1, 1000);
             camera.position.set(4, 4, 4);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
-            renderer.setSize(window.innerWidth - 300, window.innerHeight - 52);
+            renderer.setSize(viewportW, viewportH);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            // Standart ACES ToneMapping (Model-viewer ile uyumluluk için)
             renderer.toneMapping = THREE.ACESFilmicToneMapping;
             renderer.toneMappingExposure = 1.5;
             document.getElementById('container').appendChild(renderer.domElement);
@@ -141,8 +177,33 @@
             selectionBox.visible = false;
             scene.add(selectionBox);
 
+            // POST-PROCESSING SETUP (HDR GLOW)
+            // UnrealBloomPass: Perceived HDR etkisi yaratır, highlights'ları parlatır.
+            composer = new EffectComposer(renderer);
+            composer.addPass(new RenderPass(scene, camera));
+            
+            // Bloom parametreleri: resolution, strength, radius, threshold
+            bloomPass = new UnrealBloomPass( new THREE.Vector2( viewportW, viewportH ), 0.5, 0.4, 0.85 );
+            composer.addPass(bloomPass);
+            
+            // Final çıktı pası ( ToneMapping ve Gamma düzeltmeyi composer zincirinin sonuna ekler)
+            const outputPass = new OutputPass();
+            composer.addPass(outputPass);
+
+            // Window Resize Handler (Post-processing Composer'ın çözünürlüğünü günceller)
+            window.addEventListener('resize', onWindowResize);
+
             setupControls();
             animate();
+        }
+        
+        function onWindowResize() {
+            const width = window.innerWidth - 300;
+            const height = window.innerHeight - 52;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+            composer.setSize(width, height);
         }
 
         function setupControls() {
@@ -166,19 +227,13 @@
                 }
             });
 
-            window.addEventListener('keydown', (e) => {
-                if (e.ctrlKey && e.key === 'z') undo();
-            });
-
-            document.getElementById('mesh-color').addEventListener('input', (e) => {
-                if(!selectedMesh) return;
-                history.push({ type: 'color', obj: selectedMesh, val: selectedMesh.material.color.getHex() });
-                selectedMesh.material.color.set(e.target.value);
-            });
+            // RENK VE SOLDURMA KONTROLLERİ
+            document.getElementById('mesh-color').addEventListener('input', updateSelectedMeshColor);
+            document.getElementById('mesh-saturation').addEventListener('input', updateSelectedMeshColor);
 
             document.getElementById('btn-tex').onclick = () => document.getElementById('tex-input').click();
             
-            // --- TEXTURE (DOKU) YÜKLEME - GELİŞTİRİLMİŞ ---
+            // --- TEXTURE (DOKU) YÜKLEME VE AYARLAR ---
             document.getElementById('tex-input').onchange = (e) => {
                 if(!selectedMesh || !e.target.files[0]) return;
                 const reader = new FileReader();
@@ -188,15 +243,20 @@
                     img.onload = () => {
                         const tex = new THREE.Texture(img);
                         tex.colorSpace = THREE.SRGBColorSpace;
-                        tex.flipY = false; 
+                        tex.flipY = false; // GLTF standardı
                         
-                        // Dokunun sündürülmesini engeller ve parçaya yayılmasını sağlar
+                        // Doku sündürülmesini engelle ve parçaya yayılmasını sağla
                         tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-                        tex.repeat.set(1, 1); 
                         
+                        // ÖNEMLİ: Dokuyu büyütmek için küçük bir repeat değeri veriyoruz (0.05 = 20 Kat Büyük)
+                        const s = document.getElementById('tex-scale').value;
+                        tex.repeat.set(s, s);
+                        
+                        // Döndürme
+                        tex.rotation = THREE.MathUtils.degToRad(document.getElementById('tex-rotate').value);
                         tex.needsUpdate = true;
                         
-                        history.push({ type: 'tex', obj: selectedMesh, val: selectedMesh.material.map });
+                        // Kaydetme zincirine değişiklikleri ekle (save() parse ederken cloned material'ı okur)
                         selectedMesh.material.map = tex;
                         selectedMesh.material.needsUpdate = true; 
                     };
@@ -204,10 +264,24 @@
                 reader.readAsDataURL(e.target.files[0]);
             };
 
+            // Doku Ölçeği (Büyüklük) Değişince Anlık Güncelle
+            document.getElementById('tex-scale').oninput = (e) => {
+                if(selectedMesh && selectedMesh.material.map) {
+                    const s = parseFloat(e.target.value);
+                    selectedMesh.material.map.repeat.set(s, s);
+                }
+            };
+            
+            // Doku Döndürme Değişince Anlık Güncelle (Kaydettiğinde GLB'ye yüklenir)
+            document.getElementById('tex-rotate').oninput = (e) => {
+                if(selectedMesh && selectedMesh.material.map) {
+                    selectedMesh.material.map.rotation = THREE.MathUtils.degToRad(e.target.value);
+                }
+            };
+
             document.getElementById('mesh-opacity').addEventListener('input', (e) => {
                 if(!selectedMesh) return;
                 const v = parseFloat(e.target.value);
-                history.push({ type: 'opacity', obj: selectedMesh, val: selectedMesh.material.opacity });
                 selectedMesh.material.transparent = v < 1;
                 selectedMesh.material.opacity = v;
                 selectedMesh.material.depthWrite = v === 1;
@@ -215,31 +289,35 @@
 
             document.getElementById('mesh-metal').addEventListener('input', (e) => {
                 if(!selectedMesh) return;
-                history.push({ type: 'metal', obj: selectedMesh, val: selectedMesh.material.metalness || 0 });
                 selectedMesh.material.metalness = parseFloat(e.target.value);
                 selectedMesh.material.roughness = 1.0 - (parseFloat(e.target.value) * 0.7);
             });
 
             document.getElementById('btn-delete').onclick = () => {
                 if(!selectedMesh) return;
-                history.push({ type: 'delete', obj: selectedMesh, parent: selectedMesh.parent });
                 selectedMesh.removeFromParent();
                 deselectPart();
             };
 
-            document.getElementById('btn-cm').onclick = () => { history.push({ type: 'scale', val: currentModel.scale.clone() }); currentModel.scale.multiplyScalar(0.01); };
-            document.getElementById('btn-mm').onclick = () => { history.push({ type: 'scale', val: currentModel.scale.clone() }); currentModel.scale.multiplyScalar(0.001); };
-            document.getElementById('btn-rotate').onclick = () => { history.push({ type: 'rotate', val: currentModel.rotation.clone() }); currentModel.rotation.y += Math.PI / 2; };
+            document.getElementById('btn-cm').onclick = () => { if(currentModel) currentModel.scale.multiplyScalar(0.01); };
+            document.getElementById('btn-mm').onclick = () => { if(currentModel) currentModel.scale.multiplyScalar(0.001); };
+            document.getElementById('btn-rotate').onclick = () => { if(currentModel) currentModel.rotation.y += Math.PI / 2; };
             document.getElementById('btn-snap').onclick = () => {
+                if(!currentModel) return;
                 const box = new THREE.Box3().setFromObject(currentModel);
                 currentModel.position.y -= box.min.y;
             };
 
+            // ORTAM VE HDR KONTROLLERİ
             document.getElementById('in-exp').oninput = (e) => renderer.toneMappingExposure = parseFloat(e.target.value);
             document.getElementById('in-sun').oninput = (e) => {
                 const angle = parseFloat(e.target.value) * (Math.PI / 180);
                 sunLight.position.set(Math.cos(angle) * 10, 8, Math.sin(angle) * 10);
             };
+            
+            // HDR Glow (Bloom) Kontrolleri
+            document.getElementById('bloom-strength').oninput = (e) => bloomPass.strength = parseFloat(e.target.value);
+            document.getElementById('bloom-radius').oninput = (e) => bloomPass.radius = parseFloat(e.target.value);
 
             // --- VARYASYON EKLEME - DÜZELTİLDİ ---
             document.getElementById('btn-add-var').onclick = () => {
@@ -260,6 +338,23 @@
                 renderVars();
                 document.getElementById('var-name').value = '';
             };
+        }
+        
+        // Renk Seçici ve Satürasyon (Soldurma) Sürgüsünü Birleştirir
+        function updateSelectedMeshColor() {
+            if(!selectedMesh) return;
+            const hex = document.getElementById('mesh-color').value;
+            const saturationFactor = parseFloat(document.getElementById('mesh-saturation').value);
+            
+            const color = new THREE.Color(hex);
+            
+            // HSL'e çevir, satürasyonu uygula, geri çevir
+            const hsl = {};
+            color.getHSL(hsl);
+            // Satürasyon 0 ise tam soluk (gri), 1 ise orijinal hex rengi
+            color.setHSL(hsl.h, saturationFactor, hsl.l);
+            
+            selectedMesh.material.color.copy(color);
         }
 
         function renderVars() {
@@ -284,28 +379,33 @@
             selectionBox.visible = true;
             document.getElementById('mesh-panel').style.display = 'block';
             document.getElementById('mesh-name').innerText = mesh.name || "Mesh";
-            document.getElementById('mesh-color').value = "#" + selectedMesh.material.color.getHexString();
+            
+            // Mevcut renk Hex'ini ve HSL satürasyonunu UI'a yükle (soldurma algısı için)
+            const materialColor = selectedMesh.material.color;
+            document.getElementById('mesh-color').value = "#" + materialColor.getHexString();
+            
+            const hsl = {};
+            materialColor.getHSL(hsl);
+            document.getElementById('mesh-saturation').value = hsl.s; // Satürasyon değeri sürgüye yansır
+
             document.getElementById('mesh-opacity').value = selectedMesh.material.opacity || 1;
             document.getElementById('mesh-metal').value = selectedMesh.material.metalness || 0;
+            
+            // Doku varsa ayarlarını slider'lara yansıt
+            if(selectedMesh.material.map) {
+                const map = selectedMesh.material.map;
+                document.getElementById('tex-scale').value = map.repeat.x; // scale
+                document.getElementById('tex-rotate').value = THREE.MathUtils.radToDeg(map.rotation); // rotate
+            } else {
+                document.getElementById('tex-scale').value = 0.05;
+                document.getElementById('tex-rotate').value = 0;
+            }
         }
 
         function deselectPart() {
             selectedMesh = null;
             selectionBox.visible = false;
             document.getElementById('mesh-panel').style.display = 'none';
-        }
-
-        function undo() {
-            if(history.length === 0) return;
-            const last = history.pop();
-            if (last.type === 'color') last.obj.material.color.setHex(last.val);
-            if (last.type === 'opacity') { last.obj.material.opacity = last.val; last.obj.material.transparent = last.val < 1; }
-            if (last.type === 'metal') last.obj.material.metalness = last.val;
-            if (last.type === 'delete') last.parent.add(last.obj);
-            if (last.type === 'scale') currentModel.scale.copy(last.val);
-            if (last.type === 'rotate') currentModel.rotation.copy(last.val);
-            if (last.type === 'tex') { last.obj.material.map = last.val; last.obj.material.needsUpdate = true; }
-            if (selectedMesh) selectionBox.setFromObject(selectedMesh);
         }
 
         // --- MODEL YÜKLEME VE BUG ÇÖZÜMÜ ---
@@ -318,7 +418,8 @@
 
             const loader = new GLTFLoader();
             const dracoLoader = new DRACOLoader();
-            dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
+            // DRACO Path CDN uyuşmazlığı yaşamamak için npm üzerindeki path'e yönlendirildi
+            dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/');
             loader.setDRACOLoader(dracoLoader);
 
             loader.load(
@@ -361,17 +462,22 @@
                 .toLowerCase();
 
             document.getElementById('loading-ov').style.display = 'flex';
-            document.getElementById('loading-text').innerText = "DOSYALAR YÜKLENİYOR...";
+            document.getElementById('loading-text').innerText = "KÜTÜPHANEYE KAYDEDİLİYOR...";
 
             try {
                 const { data: { user } } = await _supabase.auth.getUser();
                 if(!user) throw new Error("Oturum bulunamadı. Lütfen tekrar giriş yapın.");
-
+                
+                // Thumbnail (Önizleme) Yakala (HDR Glow ile birlikte)
                 grid.visible = false; selectionBox.visible = false;
-                renderer.render(scene, camera);
+                // Post-processing'li sahneyi Render et (Thumbnail parlasın diye)
+                composer.render();
+                // Rendered Canvas'tan resmi çek
                 const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
                 grid.visible = true;
 
+                // GLB Olarak Dışa Aktar (Kaydedildiğinde Modele Yüklenir: Renkler, Opaklık, Doku Döndürme vs.)
+                // GLTFExporter post-processing efektlerini (parlamayı) kaydetmez. Sadece mesh ve materyal özelliklerini kaydeder.
                 const exporter = new GLTFExporter();
                 exporter.parse(
                     currentModel, 
@@ -392,10 +498,11 @@
                                 await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
                             }
 
+                            // DB'ye kaydet (Buraya bloom settings de eklenebilir ama model-viewer native desteklemez)
                             await _supabase.from('models').insert([{
                                 user_id: user.id,
                                 name: name,
-                                exposure: renderer.toneMappingExposure,
+                                exposure: renderer.toneMappingExposure, //saves dynamic exposure
                                 shadow_intensity: 1.0
                             }]);
 
@@ -418,14 +525,15 @@
             }
         };
 
+        // --- ANIMATION LOOP ---
         function animate() {
             requestAnimationFrame(animate);
             if (orbit) orbit.update();
-            if (renderer && scene && camera) renderer.render(scene, camera);
+            // Artık renderer.render() değil, post-processing composer'ı render ediyor (Glow için)
+            if (composer) composer.render();
         }
 
         init();
     </script>
-   
 </body>
 </html>
