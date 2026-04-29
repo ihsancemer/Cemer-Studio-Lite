@@ -108,10 +108,10 @@
     const params = new URLSearchParams(window.location.search);
     const rawId = decodeURIComponent(params.get('model') || params.get('id') || "");
 
-    // İSİM TEMİZLEME (Upload ile %100 senkronize)
+    // İSİM TEMİZLEME (Upload ile %100 senkronize - Tireye İzin Verildi)
     const modelId = rawId.trim().toLowerCase()
         .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-        .replace(/[^a-z0-9]/g, '_').replace(/__+/g, '_').replace(/^_|_$/g, '');
+        .replace(/[^a-z0-9-]/g, '_').replace(/__+/g, '_').replace(/^_|_$/g, '');
 
     const mv = document.getElementById('mv');
     const bucketPath = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/`;
@@ -149,7 +149,7 @@
         // GLTF yükleme hatası kontrolü
         mv.addEventListener('error', (e) => {
             console.error("❌ Model Yükleme Hatası:", e);
-            showError("Model Bulunamadı", `"${modelId}" dosyasına ulaşılamıyor.\nSunucudan hatalı yanıt geldi (400/404).`);
+            showError("Model Bulunamadı", `"${modelId}" dosyasına erişilemiyor.\nSunucudan hatalı yanıt geldi (400/404).`);
         });
     }
 
