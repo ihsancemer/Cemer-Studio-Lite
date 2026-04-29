@@ -20,7 +20,6 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; }
 
-    /* Arka Plan Izgarası */
     body::before {
       content: ''; position: fixed; inset: 0; z-index: 0; opacity: 0.2; pointer-events: none;
       background-image: linear-gradient(var(--border) 1px, transparent 1px), linear-gradient(90deg, var(--border) 1px, transparent 1px);
@@ -31,12 +30,14 @@
     .sidebar { position: fixed; top: 0; left: 0; width: 240px; height: 100vh; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; padding-bottom: 24px; }
     .sidebar-logo { padding: 28px 24px; border-bottom: 1px solid var(--border); font-size: 20px; font-weight: 800; letter-spacing: 1px; }
     .sidebar-logo span { color: var(--accent); }
-    .sidebar-nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 6px; }
+    .sidebar-nav { flex: 1; padding: 20px 12px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
     .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: var(--radius); cursor: pointer; font-size: 14px; color: var(--text2); text-decoration: none; transition: 0.2s; }
     .nav-item:hover { background: var(--bg3); color: var(--text); }
     .nav-item.active { background: var(--accent-bg); color: var(--accent); font-weight: 600; }
+    
+    .nav-section-title { font-size: 10px; color: var(--text3); font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin: 20px 12px 8px; }
 
-    .sidebar-user { padding: 16px; margin: 0 12px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+    .sidebar-user { padding: 16px; margin: 16px 12px 0; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
     .sidebar-user-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .sidebar-user-email { font-size: 11px; color: var(--text3); margin-bottom: 8px; }
     .btn-signout { padding: 8px; border: 1px solid var(--border2); border-radius: var(--radius); width: 100%; cursor: pointer; font-size: 11px; background: transparent; color: var(--text2); font-weight: 600; }
@@ -64,7 +65,6 @@
 
     .filter-group { display: flex; gap: 12px; align-items: center; }
     .filter-group select { background: var(--bg2); color: var(--text2); border: 1px solid var(--border); padding: 11px 16px; border-radius: var(--radius); font-family: inherit; font-size: 13px; outline: none; cursor: pointer; }
-    .filter-group select:focus { border-color: var(--accent); color: white; }
 
     /* Model Grid */
     .model-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 20px; }
@@ -72,18 +72,15 @@
     .model-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
     .model-thumb { height: 180px; background: #000; position: relative; border-bottom: 1px solid var(--border); }
     .model-body { padding: 18px; }
-    .model-name { font-weight: 700; font-size: 16px; margin-bottom: 4px; color: #fff; }
+    .model-name { font-weight: 700; font-size: 15px; margin-bottom: 4px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .model-meta { font-size: 11px; color: var(--text3); margin-bottom: 14px; display: flex; justify-content: space-between; }
     .model-actions { display: flex; gap: 8px; }
     
-    /* Buttons */
-    .btn-sm { flex: 1; padding: 10px; border-radius: var(--radius); font-size: 12px; cursor: pointer; border: 1px solid var(--border2); background: var(--bg3); color: var(--text); font-weight: 600; transition: 0.2s; text-align: center; text-decoration: none; }
+    .btn-sm { flex: 1; padding: 10px; border-radius: var(--radius); font-size: 11px; cursor: pointer; border: 1px solid var(--border2); background: var(--bg3); color: var(--text); font-weight: 600; transition: 0.2s; text-align: center; text-decoration: none; display: flex; align-items: center; justify-content: center; gap: 4px; }
     .btn-sm.primary { background: var(--accent); border-color: var(--accent); color: #000; }
-    .btn-sm.primary:hover { background: var(--accent-hov); border-color: var(--accent-hov); }
     .btn-sm.danger:hover { background: var(--red-bg); color: var(--red); border-color: var(--red); }
 
     .btn-upload { background: var(--accent); color: #000; padding: 10px 20px; border-radius: var(--radius); text-decoration: none; font-size: 14px; font-weight: 700; transition: 0.2s; }
-    .btn-upload:hover { transform: scale(1.05); }
 
     /* Modal */
     .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 100; display: none; align-items: center; justify-content: center; padding: 20px; }
@@ -101,12 +98,20 @@
 <aside class="sidebar">
   <div class="sidebar-logo">CEMER <span>AR STUDIO</span></div>
   <nav class="sidebar-nav">
-    <a class="nav-item active" href="dashboard.html">📦 Modellerim</a>
+    <div class="nav-section-title">Kütüphane</div>
+    <a class="nav-item active" id="tab-all" href="#" onclick="filterBySerial('all')">📦 Tüm Modeller</a>
+    
+    <div class="nav-section-title">Ürün Serileri</div>
+    <div id="serial-tabs">
+        </div>
+    
+    <div class="nav-section-title">Araçlar</div>
     <a class="nav-item" href="upload.html">🛠️ Pro Editor</a>
   </nav>
+  
   <div class="sidebar-user" id="user-box" style="display:none">
     <div class="sidebar-user-name" id="user-email-display">Yükleniyor...</div>
-    <div class="sidebar-user-email">Cemer Holding Aktif Oturum</div>
+    <div class="sidebar-user-email">Cemer Holding Oturumu</div>
     <button class="btn-signout" onclick="signOut()">Çıkış Yap</button>
   </div>
 </aside>
@@ -124,24 +129,24 @@
         <div class="stat-value" id="stat-total">0 <span>adet</span></div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">Depolama Durumu</div>
-        <div class="stat-value" style="color:var(--accent)">Aktif</div>
+        <div class="stat-label">Aktif Seri</div>
+        <div class="stat-value" id="stat-serials" style="color:var(--accent)">0</div>
       </div>
       <div class="stat-card">
-        <div class="stat-label">AR Deneyimi</div>
-        <div class="stat-value" id="stat-active">Sınırsız</div>
+        <div class="stat-label">Durum</div>
+        <div class="stat-value" style="font-size: 24px; color: var(--green);">Yayında</div>
       </div>
     </div>
 
     <div class="library-header">
         <div>
-            <div style="font-weight:700; font-size: 20px; margin-bottom: 4px;">Ürün Kütüphanesi</div>
+            <div id="current-tab-title" style="font-weight:700; font-size: 20px; margin-bottom: 4px;">Tüm Modeller</div>
             <div id="model-count" style="color:var(--text3); font-size: 13px;">(0 Ürün Listeleniyor)</div>
         </div>
         
         <div class="search-box">
             <i>🔍</i>
-            <input type="text" id="search-input" placeholder="Ürün ismi veya kod ile ara...">
+            <input type="text" id="search-input" placeholder="İsim veya seri kodu ile ara...">
         </div>
 
         <div class="filter-group">
@@ -150,25 +155,24 @@
                 <option value="date-asc">En Eski Eklenen</option>
                 <option value="name-asc">İsim (A-Z)</option>
                 <option value="name-desc">İsim (Z-A)</option>
-                <option value="code-asc">Kod (Artan)</option>
             </select>
         </div>
     </div>
 
     <div class="model-grid" id="model-grid">
-      <div style="padding:40px; color:var(--text3)">Veriler yükleniyor, lütfen bekleyin...</div>
+      <div style="padding:40px; color:var(--text3)">Modeller yükleniyor...</div>
     </div>
   </div>
 </main>
 
 <div class="modal-backdrop" id="link-modal">
     <div class="modal">
-        <h3 id="link-modal-name" style="margin-bottom: 8px;">Model Linki</h3>
-        <p style="font-size: 13px; color: var(--text2);">Bu QR kodu müşterilerinize okutarak ürünü AR olarak deneyimlemelerini sağlayabilirsiniz.</p>
+        <h3 id="link-modal-name">Model Linki</h3>
+        <p style="font-size: 13px; color: var(--text2); margin: 10px 0;">AR deneyimi için QR kodu müşterilerinizle paylaşın.</p>
         <div id="qrcode"></div>
         <div class="url-box" id="link-modal-url"></div>
         <div style="display:flex; gap:12px">
-            <button class="btn-sm primary" onclick="copyModalLink()">Linki Kopyala</button>
+            <button class="btn-sm primary" onclick="copyModalLink()">Kopyala</button>
             <button class="btn-sm" onclick="closeModal('link-modal')">Kapat</button>
         </div>
     </div>
@@ -185,7 +189,8 @@
 
   const BASE_URL = window.location.origin;
   let currentUser = null;
-  let allModels = []; // Tüm veriyi hafızada tutmak için
+  let allModels = []; 
+  let currentSerialFilter = 'all';
 
   async function init() {
     const { data: { session } } = await _supabase.auth.getSession();
@@ -197,7 +202,6 @@
     
     await loadModels();
     
-    // Filtreleme Event Dinleyicileri
     document.getElementById('search-input').addEventListener('input', applyFilters);
     document.getElementById('sort-select').addEventListener('change', applyFilters);
   }
@@ -206,17 +210,47 @@
     const { data, error } = await _supabase
       .from('models')
       .select('*')
-      .eq('user_id', currentUser.id);
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error("Yükleme hatası:", error);
-      return;
-    }
+    if (error) return;
 
     allModels = data || [];
-    applyFilters(); // İlk yüklemede sıralamayı uygula
+    renderSerialTabs();
+    applyFilters();
     
     document.getElementById('stat-total').innerHTML = `${allModels.length} <span>adet</span>`;
+  }
+
+  function renderSerialTabs() {
+    const container = document.getElementById('serial-tabs');
+    // Benzersiz seri kodlarını çek
+    const serials = [...new Set(allModels.map(m => m.serial_code).filter(s => s))].sort();
+    
+    document.getElementById('stat-serials').textContent = serials.length;
+
+    container.innerHTML = serials.map(s => `
+        <a class="nav-item tab-serial" data-serial="${s}" href="#" onclick="filterBySerial('${s}')">
+            📁 ${s}
+        </a>
+    `).join('');
+  }
+
+  function filterBySerial(serial) {
+    currentSerialFilter = serial;
+    
+    // UI Aktiflik Durumu
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    if(serial === 'all') {
+        document.getElementById('tab-all').classList.add('active');
+        document.getElementById('current-tab-title').textContent = "Tüm Modeller";
+    } else {
+        const activeTab = document.querySelector(`.tab-serial[data-serial="${serial}"]`);
+        if(activeTab) activeTab.classList.add('active');
+        document.getElementById('current-tab-title').textContent = serial + " Serisi";
+    }
+    
+    applyFilters();
   }
 
   function applyFilters() {
@@ -224,22 +258,26 @@
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
     const sortBy = document.getElementById('sort-select').value;
 
-    // 1. ARAMA MANTIĞI
+    // 1. Seri Filtresi
+    if (currentSerialFilter !== 'all') {
+        filtered = filtered.filter(m => m.serial_code === currentSerialFilter);
+    }
+
+    // 2. Arama Filtresi
     if (searchTerm) {
         filtered = filtered.filter(m => 
             m.name.toLowerCase().includes(searchTerm) || 
-            m.id.toLowerCase().includes(searchTerm)
+            (m.serial_code && m.serial_code.toLowerCase().includes(searchTerm))
         );
     }
 
-    // 2. SIRALAMA MANTIĞI
+    // 3. Sıralama
     filtered.sort((a, b) => {
         switch (sortBy) {
             case 'date-desc': return new Date(b.created_at) - new Date(a.created_at);
             case 'date-asc': return new Date(a.created_at) - new Date(b.created_at);
             case 'name-asc': return a.name.localeCompare(b.name);
             case 'name-desc': return b.name.localeCompare(a.name);
-            case 'code-asc': return a.id.localeCompare(b.id);
             default: return 0;
         }
     });
@@ -250,37 +288,28 @@
 
   function renderModels(list) {
     const grid = document.getElementById('model-grid');
-    if(!grid) return;
-
     if (list.length === 0) {
-      grid.innerHTML = `
-        <div style="grid-column:1/-1; text-align:center; padding:80px; border:2px dashed var(--border); border-radius:12px; background: var(--bg2);">
-          <div style="font-size: 40px; margin-bottom: 15px;">🔍</div>
-          <div style="font-weight: 700; margin-bottom: 5px;">Sonuç Bulunamadı</div>
-          <div style="color: var(--text3); font-size: 13px;">Arama kriterlerinize uygun model bulunmuyor.</div>
-        </div>`;
+      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:80px; opacity:0.5;">Model bulunamadı.</div>`;
       return;
     }
 
     grid.innerHTML = list.map(m => {
       const { data: thumbData } = _supabase.storage.from('models').getPublicUrl(`${m.name}-thumb.webp`);
-      const thumbUrlWithCache = `${thumbData.publicUrl}?t=${new Date(m.created_at).getTime()}`;
       const dateStr = new Date(m.created_at).toLocaleDateString('tr-TR');
-      const shortId = m.id.split('-')[0].toUpperCase();
 
       return `
       <div class="model-card">
         <div class="model-thumb">
-          <img src="${thumbUrlWithCache}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x180?text=Model+Yok'">
+          <img src="${thumbData.publicUrl}?t=${new Date(m.created_at).getTime()}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x180?text=Model+Hazirlaniyor'">
         </div>
         <div class="model-body">
           <div class="model-name">${m.name.toUpperCase()}</div>
           <div class="model-meta">
-            <span>Kod: #${shortId}</span>
+            <span style="color:var(--accent); font-weight:600;">Seri: ${m.serial_code || 'Belirtilmedi'}</span>
             <span>${dateStr}</span>
           </div>
           <div class="model-actions">
-            <button class="btn-sm primary" onclick="showLink('${m.name}')">🔗 Link</button>
+            <button class="btn-sm primary" onclick="showLink('${m.name}')">🔗 Paylaş</button>
             <a href="viewer.html?model=${m.name}" target="_blank" class="btn-sm">👁️ Gözat</a>
             <button class="btn-sm danger" onclick="deleteModel('${m.id}', '${m.name}')">🗑️</button>
           </div>
@@ -293,48 +322,33 @@
     const url = `${BASE_URL}/viewer.html?model=${encodeURIComponent(name)}`;
     document.getElementById('link-modal-name').textContent = name.toUpperCase();
     document.getElementById('link-modal-url').textContent = url;
-    
     const qrContainer = document.getElementById('qrcode');
     qrContainer.innerHTML = "";
-    new QRCode(qrContainer, { text: url, width: 180, height: 180, colorDark: "#000000", colorLight: "#ffffff" });
-    
+    new QRCode(qrContainer, { text: url, width: 180, height: 180 });
     document.getElementById('link-modal').classList.add('open');
   }
 
   function copyModalLink() {
-    const url = document.getElementById('link-modal-url').textContent;
-    navigator.clipboard.writeText(url).then(() => { 
-        showToast("Link Kopyalandı!"); 
-    });
+    navigator.clipboard.writeText(document.getElementById('link-modal-url').textContent).then(() => showToast("Kopyalandı!"));
   }
 
   async function deleteModel(id, name) {
-    if(!confirm(`"${name}" ürününü silmek istediğinize emin misiniz?`)) return;
-
+    if(!confirm(`"${name}" ürününü kütüphaneden silmek istediğinize emin misiniz?`)) return;
     try {
         await _supabase.storage.from('models').remove([`${name}-3d.glb`, `${name}-thumb.webp`, `${name}-vars.json`]);
-        const { error } = await _supabase.from('models').delete().eq('id', id);
-        if(error) throw error;
-        
+        await _supabase.from('models').delete().eq('id', id);
         showToast("Ürün silindi.");
         loadModels();
-    } catch (err) {
-        alert("Hata: " + err.message);
-    }
+    } catch (err) { alert("Hata: " + err.message); }
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-  
   function showToast(msg) { 
     const t = document.getElementById('toast'); 
-    t.textContent = msg; 
-    t.classList.add('show'); 
+    t.textContent = msg; t.classList.add('show'); 
     setTimeout(() => t.classList.remove('show'), 3000); 
   }
-
-  function signOut() { 
-    _supabase.auth.signOut().then(() => window.location.href = 'login.html'); 
-  }
+  function signOut() { _supabase.auth.signOut().then(() => window.location.href = 'login.html'); }
 
   init();
 </script>
