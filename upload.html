@@ -296,11 +296,11 @@
             const serialCode = document.getElementById('save-serial').value.trim();
             if(!nameRaw || !serialCode) return alert("Eksik bilgi!");
 
-            // --- GÜNCELLENMİŞ İSİM TEMİZLEME MOTORU ---
+            // --- GÜNCELLENMİŞ İSİM TEMİZLEME MOTORU (Tireye İzin Verildi) ---
             const name = nameRaw.trim()
                 .toLowerCase()
                 .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                .replace(/[^a-z0-9]/g, '_') // Harf ve rakam dışındaki her şeyi alt tire yap
+                .replace(/[^a-z0-9-]/g, '_') // Harf, rakam ve tire dışındaki her şeyi alt tire yap
                 .replace(/__+/g, '_')      // Ardışık alt tireleri teke indir
                 .replace(/^_|_$/g, '');    // Başta veya sondaki alt tireleri sil
 
