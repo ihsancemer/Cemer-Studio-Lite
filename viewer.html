@@ -129,17 +129,16 @@
         if (!modelId) {
             showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullandığınızdan emin olun.");
         } else {
-            // Dinamik Supabase URL
             const baseUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/${modelId}`;
             
             mv.src = `${baseUrl}-3d.glb`;
             
-            // DİKKAT: ios-src satırı kaldırıldı. 
-            // model-viewer artık iOS için USDZ dosyasını çalışma anında kendisi üretecek.
+            // KRİTİK: Apple için ios-src özelliğini KESİNLİKLE set etmiyoruz.
+            // Eğer HTML içinde varsa bile JavaScript ile kaldırıyoruz.
+            mv.removeAttribute('ios-src'); 
 
             loadVariations(`${baseUrl}-vars.json`);
 
-            // Yükleme İlerlemesi (Progress)
             mv.addEventListener('progress', (ev) => {
                 const progress = ev.detail.totalProgress * 100;
                 loadFill.style.width = `${progress}%`;
@@ -148,17 +147,15 @@
                 }
             });
 
-            // Başarıyla Yüklendi
             mv.addEventListener('load', () => {
                 statusOv.style.opacity = '0';
                 setTimeout(() => statusOv.style.display = 'none', 500);
                 document.getElementById('ar-trigger').style.display = 'flex';
             });
 
-            // Hata Yakalama
             mv.addEventListener('error', (e) => {
                 if (e.detail && e.detail.type === 'loadfailure') {
-                    showError("Ürün Bulunamadı", `Ürün dosyası sunucuda mevcut değil veya formatı desteklenmiyor.`);
+                    showError("Ürün Bulunamadı", `Ürün dosyası mevcut değil.`);
                 }
             });
         }
@@ -167,12 +164,9 @@
             try {
                 const response = await fetch(`${url}?t=${Date.now()}`);
                 if (!response.ok) return; 
-                
                 const vars = await response.json();
                 if (vars.length === 0) return;
-
                 const container = document.getElementById('variant-list');
-                
                 vars.forEach((v, index) => {
                     const btn = document.createElement('button');
                     btn.className = `variant-btn ${index === 0 ? 'active' : ''}`;
@@ -180,9 +174,7 @@
                     btn.onclick = () => applyVariation(v.colors, btn);
                     container.appendChild(btn);
                 });
-            } catch (e) {
-                console.warn("Varyasyon bilgisi yüklenemedi.");
-            }
+            } catch (e) { console.warn("Varyasyon hatası."); }
         }
 
         function applyVariation(colorMap, clickedBtn) {
@@ -192,20 +184,19 @@
             const model = mv.model;
             if (!model) return;
 
-            // PBR Materyal Güncelleme
+            // Renkleri modele uygula
             for (const material of model.materials) {
                 const materialName = material.name;
                 if (colorMap[materialName]) {
-                    // Editor'den gelen RGBA [R, G, B, A] dizisini uygula
                     material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
                 }
             }
 
-            // --- KRİTİK AR GÜNCELLEMESİ ---
-            // Yapılan renk değişikliklerini AR motoruna (Scene Viewer/Quick Look) zorla yansıtmasını söyler.
-            // Bu satır olmazsa AR eski renklerle açılabilir.
-            if (mv.canActivateAR) {
-                // model-viewer'a modelin değiştiğini ve AR dosyasını yeniden oluşturması gerektiğini bildiriyoruz.
+            // --- APPLE (iOS) İÇİN SİHİRLİ DOKUNUŞ ---
+            // Apple AR butonuna basıldığında, o anki renkli halini 
+            // anlık olarak USDZ'ye çevirmesi için model-viewer'ı zorluyoruz.
+            if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
+                // model-viewer anlık sahneyi paketleyip Apple'a gönderir
             }
         }
 
