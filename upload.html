@@ -192,15 +192,15 @@
         composer.addPass(bloomPass);
         composer.addPass(new OutputPass());
 
-        setupControls(); // Dinleyicileri bağla
+        setupControls(); // Kontrolleri başlat
         animate();
-        checkEditMode(); // Sayfa yüklendiğinde düzenleme kontrolü yap
+        checkEditMode(); // URL'de edit varsa yükle
     }
 
     function setupControls() {
         const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
 
-        // --- MODEL SEÇME (MESH CLICK) ---
+        // --- MODEL SEÇME ---
         document.getElementById('container').addEventListener('pointerdown', (e) => {
             if (!currentModel) return;
             const rect = renderer.domElement.getBoundingClientRect();
@@ -211,8 +211,8 @@
             if (hits.length > 0 && hits[0].object.isMesh) selectPart(hits[0].object); else deselectPart();
         });
 
-        // --- GLB DOSYASI AÇMA (BURASI BOZUKTU, DÜZELTİLDİ) ---
-        document.getElementById('file-input').onchange = (e) => {
+        // --- MODEL AÇMA (GLB YÜKLEME) ---
+        document.getElementById('file-input').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if(!file) return;
             document.getElementById('loading-text').innerText = "MODEL AÇILIYOR...";
@@ -227,17 +227,15 @@
                 if(currentModel) scene.remove(currentModel);
                 currentModel = gltf.scene;
                 scene.add(currentModel);
-                
                 const box = new THREE.Box3().setFromObject(currentModel);
                 const center = box.getCenter(new THREE.Vector3());
                 currentModel.position.set(-center.x, -box.min.y, -center.z);
-                
                 document.getElementById('loading-ov').style.display = 'none';
                 e.target.value = ""; 
             });
-        };
+        });
 
-        // --- TÜM ÖLÇEK, RENK VE DOKU AYARLARI (EKSİKSİZ) ---
+        // --- TÜM AYARLAR (HİÇBİRİ EKSİLMEDİ) ---
         document.getElementById('mesh-color').oninput = updateSelectedMeshColor;
         document.getElementById('mesh-saturation').oninput = updateSelectedMeshColor;
         
@@ -259,20 +257,10 @@
             reader.readAsDataURL(e.target.files[0]);
         };
 
-        document.getElementById('tex-scale').oninput = (e) => {
-            if(selectedMesh?.material.map) selectedMesh.material.map.repeat.set(e.target.value, e.target.value);
-        };
-        document.getElementById('tex-rotate').oninput = (e) => {
-            if(selectedMesh?.material.map) selectedMesh.material.map.rotation = THREE.MathUtils.degToRad(e.target.value);
-        };
-        document.getElementById('mesh-opacity').oninput = (e) => {
-            if(!selectedMesh) return;
-            selectedMesh.material.transparent = e.target.value < 1;
-            selectedMesh.material.opacity = parseFloat(e.target.value);
-        };
-        document.getElementById('mesh-metal').oninput = (e) => {
-            if(selectedMesh) selectedMesh.material.metalness = parseFloat(e.target.value);
-        };
+        document.getElementById('tex-scale').oninput = (e) => { if(selectedMesh?.material.map) selectedMesh.material.map.repeat.set(e.target.value, e.target.value); };
+        document.getElementById('tex-rotate').oninput = (e) => { if(selectedMesh?.material.map) selectedMesh.material.map.rotation = THREE.MathUtils.degToRad(e.target.value); };
+        document.getElementById('mesh-opacity').oninput = (e) => { if(selectedMesh) { selectedMesh.material.transparent = e.target.value < 1; selectedMesh.material.opacity = parseFloat(e.target.value); }};
+        document.getElementById('mesh-metal').oninput = (e) => { if(selectedMesh) selectedMesh.material.metalness = parseFloat(e.target.value); };
         document.getElementById('btn-delete').onclick = () => { if(selectedMesh) { selectedMesh.removeFromParent(); deselectPart(); } };
         
         document.getElementById('btn-rotate').onclick = () => { if(currentModel) currentModel.rotation.y += Math.PI / 2; };
@@ -288,7 +276,7 @@
         document.getElementById('bloom-strength').oninput = (e) => bloomPass.strength = parseFloat(e.target.value);
         document.getElementById('bloom-radius').oninput = (e) => bloomPass.radius = parseFloat(e.target.value);
 
-        // --- VARYASYON SİSTEMİ ---
+        // --- VARYASYONLAR ---
         document.getElementById('btn-add-var').onclick = () => {
             if(!currentModel) return;
             const vName = document.getElementById('var-name').value || `Varyasyon ${variations.length + 1}`;
@@ -305,13 +293,13 @@
             document.getElementById('var-name').value = '';
         };
 
-        // --- KAYIT SİSTEMİ ---
+        // --- KAYIT VE UPSERT ---
         document.getElementById('btn-save').onclick = () => { if(currentModel) document.getElementById('save-modal').style.display = 'flex'; };
         
         document.getElementById('btn-confirm-save').onclick = async () => {
             const nameRaw = document.getElementById('save-name').value;
             const serialCode = document.getElementById('save-serial').value.trim();
-            if(!nameRaw || !serialCode) return alert("İsim ve Seri Kod şart!");
+            if(!nameRaw || !serialCode) return alert("Eksik bilgi!");
 
             const name = nameRaw.trim().replace(/\s+/g, '_').toLowerCase();
             document.getElementById('save-modal').style.display = 'none';
@@ -342,7 +330,7 @@
         };
     }
 
-    // --- DÜZENLEME MODU (DASHBOARDDAN GELEN) ---
+    // --- DASHBOARDDAN GELEN EDİT VERİSİ ---
     async function checkEditMode() {
         const editName = new URLSearchParams(window.location.search).get('edit');
         if (!editName) return;
@@ -370,7 +358,7 @@
         } catch (e) { document.getElementById('loading-ov').style.display = 'none'; }
     }
 
-    // --- YARDIMCI FONKSİYONLAR ---
+    // --- YARDIMCI ARAÇLAR ---
     function selectPart(mesh) {
         selectedMesh = mesh;
         if(!selectedMesh.material.isCloned) { selectedMesh.material = selectedMesh.material.clone(); selectedMesh.material.isCloned = true; }
