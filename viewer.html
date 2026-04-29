@@ -184,7 +184,7 @@
             const model = mv.model;
             if (!model) return;
 
-            // Renkleri modele uygula
+            // 1. Materyalleri Boya
             for (const material of model.materials) {
                 const materialName = material.name;
                 if (colorMap[materialName]) {
@@ -192,11 +192,20 @@
                 }
             }
 
-            // --- APPLE (iOS) İÇİN SİHİRLİ DOKUNUŞ ---
-            // Apple AR butonuna basıldığında, o anki renkli halini 
-            // anlık olarak USDZ'ye çevirmesi için model-viewer'ı zorluyoruz.
+            // 2. AR ÖNBELLEĞİNİ PATLAT (ASIL ÇÖZÜM BURASI)
+            // model-viewer'a "İçerik değişti, AR dosyasını yeniden üret" diyoruz.
+            // Bu satır olmazsa telefon eski seçtiğin rengi hatırlar.
+            
+            // Sahneyi anlık olarak tazele
+            const currentSrc = mv.src;
+            mv.src = currentSrc; 
+            
+            // Apple (iOS) için Quick Look dosyasını geçersiz kıl
             if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
-                // model-viewer anlık sahneyi paketleyip Apple'a gönderir
+                mv.setAttribute('ios-src', ''); // Önce boşalt
+                setTimeout(() => {
+                    mv.removeAttribute('ios-src'); // Sonra tamamen kaldır ki yeni USDZ üretsin
+                }, 10);
             }
         }
 
