@@ -107,11 +107,10 @@
 <script>
     const params = new URLSearchParams(window.location.search);
     
-    // 1. PARAMETRE ALIMI VE UPLOAD İLE TAM UYUMLU TEMİZLEME
-    // Dashboard'dan gelen ham ismi alıyoruz
+    // 1. DASHBOARD'DAN GELEN İSMİ AL VE UPLOAD İLE AYNI MANTIKTA TEMİZLE
     const rawId = decodeURIComponent(params.get('model') || params.get('id') || "");
-
-    // Upload tarafındaki motorun aynısı: Küçük harf, TR karakter temizliği ve alt tire kuralı
+    
+    // Bu kısım Upload tarafındaki temizleme ile %100 aynı olmalı!
     const modelId = rawId.trim()
         .toLowerCase()
         .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
@@ -132,13 +131,11 @@
         const modelUrl = `${bucketPath}${modelId}-3d.glb`;
         const varsUrl = `${bucketPath}${modelId}-vars.json`;
         
-        // Hata ayıklama için konsola temizlenmiş yolu basıyoruz
-        console.log("🛠️ Denenen Model URL:", modelUrl);
+        console.log("🚀 Viewer'ın Aradığı Tam URL:", modelUrl);
+        console.log("🔍 Temizlenen Model ID:", modelId);
         
         // Modeli yükle
         mv.src = modelUrl;
-        
-        // iOS için USDZ üretimini tetiklemek adına ios-src'yi temizliyoruz
         mv.removeAttribute('ios-src'); 
 
         // Varyasyonları yükle
@@ -166,8 +163,7 @@
             console.error("❌ Model Viewer Hatası:", e);
             showError("Model Bulunamadı", 
                 `"${modelId}-3d.glb" dosyasına erişilemiyor. \n\n` + 
-                `İpucu: Dashboard'daki ürün isminin Storage'daki dosya ismiyle birebir aynı olduğundan emin olun. \n` +
-                `Aranan isim: ${modelId}`
+                `İpucu: Dashboard'daki ürün isminin Storage'daki dosya ismiyle birebir aynı olduğundan emin olun.`
             );
         });
     }
@@ -176,17 +172,13 @@
     async function loadVariations(url) {
         try {
             const response = await fetch(`${url}?t=${Date.now()}`);
-            if (!response.ok) {
-                console.log("ℹ️ Bu ürün için varyasyon dosyası bulunamadı.");
-                return; 
-            }
+            if (!response.ok) return; 
             const vars = await response.json();
             if (!vars || vars.length === 0) return;
             
             const container = document.getElementById('variant-list');
             if (!container) return;
-
-            container.innerHTML = ""; // Önce temizle
+            container.innerHTML = ""; 
             vars.forEach((v) => {
                 const btn = document.createElement('button');
                 btn.className = `variant-btn`;
@@ -194,41 +186,30 @@
                 btn.onclick = () => applyVariation(v.colors, btn);
                 container.appendChild(btn);
             });
-        } catch (e) { 
-            console.warn("⚠️ Varyasyon sistemi başlatılamadı:", e); 
-        }
+        } catch (e) { console.warn("Varyasyon dosyası bulunamadı."); }
     }
 
     // Seçilen varyasyonu modele uygula
     function applyVariation(colorMap, clickedBtn) {
         document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
         clickedBtn.classList.add('active');
-
-        if (!mv.model) {
-            console.error("Model henüz yüklenmediği için varyasyon uygulanamıyor.");
-            return;
-        }
-
-        // Malzeme bazlı renk değişimi
+        if (!mv.model) return;
         for (const material of mv.model.materials) {
             if (colorMap[material.name]) {
-                // colorMap[material.name] -> [r, g, b, a] formatında olmalı
                 material.pbrMetallicRoughness.setBaseColorFactor(colorMap[material.name]);
             }
         }
     }
 
-    // Hata mesajı gösterme fonksiyonu
     function showError(title, desc) {
         if (document.getElementById('main-spinner')) document.getElementById('main-spinner').style.display = 'none';
         if (document.getElementById('load-bar')) document.getElementById('load-bar').style.display = 'none';
         if (document.getElementById('status-text')) document.getElementById('status-text').style.display = 'none';
-        
         if (errorCard) {
             errorCard.style.display = 'block';
             errorCard.querySelector('h3').innerText = title;
             const descEl = document.getElementById('error-desc');
-            if (descEl) descEl.innerText = desc;
+            if (descEl) descEl.innerText = `${desc}\n\nAranan isim: ${modelId}`;
         }
     }
 </script>
