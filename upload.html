@@ -200,7 +200,6 @@
     function setupControls() {
         const raycaster = new THREE.Raycaster(), mouse = new THREE.Vector2();
 
-        // --- MODEL SEÇME ---
         document.getElementById('container').addEventListener('pointerdown', (e) => {
             if (!currentModel) return;
             const rect = renderer.domElement.getBoundingClientRect();
@@ -211,7 +210,6 @@
             if (hits.length > 0 && hits[0].object.isMesh) selectPart(hits[0].object); else deselectPart();
         });
 
-        // --- MODEL AÇMA (GLB YÜKLEME) ---
         document.getElementById('file-input').addEventListener('change', (e) => {
             const file = e.target.files[0];
             if(!file) return;
@@ -235,7 +233,6 @@
             });
         });
 
-        // --- AYARLAR ---
         document.getElementById('mesh-color').oninput = updateSelectedMeshColor;
         document.getElementById('mesh-saturation').oninput = updateSelectedMeshColor;
         
@@ -276,7 +273,6 @@
         document.getElementById('bloom-strength').oninput = (e) => bloomPass.strength = parseFloat(e.target.value);
         document.getElementById('bloom-radius').oninput = (e) => bloomPass.radius = parseFloat(e.target.value);
 
-        // --- VARYASYONLAR ---
         document.getElementById('btn-add-var').onclick = () => {
             if(!currentModel) return;
             const vName = document.getElementById('var-name').value || `Varyasyon ${variations.length + 1}`;
@@ -293,7 +289,6 @@
             document.getElementById('var-name').value = '';
         };
 
-        // --- KAYIT VE UPSERT (KURŞUN GEÇİRMEZ İSİMLENDİRME) ---
         document.getElementById('btn-save').onclick = () => { if(currentModel) document.getElementById('save-modal').style.display = 'flex'; };
         
         document.getElementById('btn-confirm-save').onclick = async () => {
@@ -301,12 +296,13 @@
             const serialCode = document.getElementById('save-serial').value.trim();
             if(!nameRaw || !serialCode) return alert("Eksik bilgi!");
 
-            // KRİTİK: İsim Temizleme (Viewer ile tam uyum için)
+            // --- GÜNCELLENMİŞ İSİM TEMİZLEME MOTORU ---
             const name = nameRaw.trim()
                 .toLowerCase()
                 .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                .replace(/[^a-z0-9]/g, '_') // Harf ve rakam dışındakileri alt tire yap
-                .replace(/__+/g, '_');      // Ardışık alt tireleri teke indir
+                .replace(/[^a-z0-9]/g, '_') // Harf ve rakam dışındaki her şeyi alt tire yap
+                .replace(/__+/g, '_')      // Ardışık alt tireleri teke indir
+                .replace(/^_|_$/g, '');    // Başta veya sondaki alt tireleri sil
 
             document.getElementById('save-modal').style.display = 'none';
             document.getElementById('loading-ov').style.display = 'flex';
@@ -322,7 +318,6 @@
                 exporter.parse(currentModel, async (buffer) => {
                     const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
                     
-                    // Storage yüklemeleri (Temizlenmiş isimle)
                     await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
                     await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
                     
@@ -331,12 +326,8 @@
                         await _supabase.storage.from('models').upload(`${name}-vars.json`, vBlob, { upsert: true });
                     }
 
-                    // DB Kaydı (onConflict: 'name' sayesinde güncelleme de yapar)
                     const { error: dbErr } = await _supabase.from('models').upsert([{ 
-                        user_id: user.id, 
-                        name: name, 
-                        serial_code: serialCode, 
-                        exposure: renderer.toneMappingExposure 
+                        user_id: user.id, name: name, serial_code: serialCode, exposure: renderer.toneMappingExposure 
                     }], { onConflict: 'name' });
 
                     if(dbErr) throw dbErr;
