@@ -192,9 +192,9 @@
         composer.addPass(bloomPass);
         composer.addPass(new OutputPass());
 
-        setupControls(); // Kontrolleri başlat
+        setupControls(); 
         animate();
-        checkEditMode(); // URL'de edit varsa yükle
+        checkEditMode(); 
     }
 
     function setupControls() {
@@ -235,7 +235,7 @@
             });
         });
 
-        // --- TÜM AYARLAR (HİÇBİRİ EKSİLMEDİ) ---
+        // --- AYARLAR ---
         document.getElementById('mesh-color').oninput = updateSelectedMeshColor;
         document.getElementById('mesh-saturation').oninput = updateSelectedMeshColor;
         
@@ -293,7 +293,7 @@
             document.getElementById('var-name').value = '';
         };
 
-        // --- KAYIT VE UPSERT ---
+        // --- KAYIT VE UPSERT (KURŞUN GEÇİRMEZ İSİMLENDİRME) ---
         document.getElementById('btn-save').onclick = () => { if(currentModel) document.getElementById('save-modal').style.display = 'flex'; };
         
         document.getElementById('btn-confirm-save').onclick = async () => {
@@ -301,7 +301,13 @@
             const serialCode = document.getElementById('save-serial').value.trim();
             if(!nameRaw || !serialCode) return alert("Eksik bilgi!");
 
-            const name = nameRaw.trim().replace(/\s+/g, '_').toLowerCase();
+            // KRİTİK: İsim Temizleme (Viewer ile tam uyum için)
+            const name = nameRaw.trim()
+                .toLowerCase()
+                .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                .replace(/[^a-z0-9]/g, '_') // Harf ve rakam dışındakileri alt tire yap
+                .replace(/__+/g, '_');      // Ardışık alt tireleri teke indir
+
             document.getElementById('save-modal').style.display = 'none';
             document.getElementById('loading-ov').style.display = 'flex';
 
@@ -315,22 +321,35 @@
                 const exporter = new GLTFExporter();
                 exporter.parse(currentModel, async (buffer) => {
                     const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
+                    
+                    // Storage yüklemeleri (Temizlenmiş isimle)
                     await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true });
                     await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true });
+                    
                     if(variations.length > 0) {
                         const vBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
                         await _supabase.storage.from('models').upload(`${name}-vars.json`, vBlob, { upsert: true });
                     }
-                    await _supabase.from('models').upsert([{ 
-                        user_id: user.id, name: name, serial_code: serialCode, exposure: renderer.toneMappingExposure 
+
+                    // DB Kaydı (onConflict: 'name' sayesinde güncelleme de yapar)
+                    const { error: dbErr } = await _supabase.from('models').upsert([{ 
+                        user_id: user.id, 
+                        name: name, 
+                        serial_code: serialCode, 
+                        exposure: renderer.toneMappingExposure 
                     }], { onConflict: 'name' });
+
+                    if(dbErr) throw dbErr;
                     window.location.href = 'dashboard.html';
                 }, { binary: true });
-            } catch (err) { alert(err.message); document.getElementById('loading-ov').style.display = 'none'; }
+            } catch (err) { 
+                console.error("Kayıt Hatası:", err);
+                alert("Hata: " + err.message); 
+                document.getElementById('loading-ov').style.display = 'none'; 
+            }
         };
     }
 
-    // --- DASHBOARDDAN GELEN EDİT VERİSİ ---
     async function checkEditMode() {
         const editName = new URLSearchParams(window.location.search).get('edit');
         if (!editName) return;
@@ -348,7 +367,8 @@
                 .load(glbRes.publicUrl, (gltf) => {
                     currentModel = gltf.scene; scene.add(currentModel);
                     const box = new THREE.Box3().setFromObject(currentModel);
-                    currentModel.position.set(-box.getCenter(new THREE.Vector3()).x, -box.min.y, -box.getCenter(new THREE.Vector3()).z);
+                    const center = box.getCenter(new THREE.Vector3());
+                    currentModel.position.set(-center.x, -box.min.y, -center.z);
                     
                     fetch(_supabase.storage.from('models').getPublicUrl(`${editName}-vars.json`).data.publicUrl + `?t=${Date.now()}`)
                         .then(res => res.ok ? res.json() : [])
@@ -358,7 +378,6 @@
         } catch (e) { document.getElementById('loading-ov').style.display = 'none'; }
     }
 
-    // --- YARDIMCI ARAÇLAR ---
     function selectPart(mesh) {
         selectedMesh = mesh;
         if(!selectedMesh.material.isCloned) { selectedMesh.material = selectedMesh.material.clone(); selectedMesh.material.isCloned = true; }
@@ -383,6 +402,5 @@
     
     init();
 </script>
-
 </body>
 </html>
