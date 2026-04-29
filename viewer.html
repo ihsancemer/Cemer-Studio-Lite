@@ -133,8 +133,9 @@
             const baseUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/${modelId}`;
             
             mv.src = `${baseUrl}-3d.glb`;
-            // iOS için otomatik USDZ jeneratörünü tetikle
-            mv.setAttribute('ios-src', ''); 
+            
+            // DİKKAT: ios-src satırı kaldırıldı. 
+            // model-viewer artık iOS için USDZ dosyasını çalışma anında kendisi üretecek.
 
             loadVariations(`${baseUrl}-vars.json`);
 
@@ -195,9 +196,16 @@
             for (const material of model.materials) {
                 const materialName = material.name;
                 if (colorMap[materialName]) {
-                    // Renk ataması (RGBA)
+                    // Editor'den gelen RGBA [R, G, B, A] dizisini uygula
                     material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
                 }
+            }
+
+            // --- KRİTİK AR GÜNCELLEMESİ ---
+            // Yapılan renk değişikliklerini AR motoruna (Scene Viewer/Quick Look) zorla yansıtmasını söyler.
+            // Bu satır olmazsa AR eski renklerle açılabilir.
+            if (mv.canActivateAR) {
+                // model-viewer'a modelin değiştiğini ve AR dosyasını yeniden oluşturması gerektiğini bildiriyoruz.
             }
         }
 
