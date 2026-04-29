@@ -178,36 +178,33 @@
         }
 
         function applyVariation(colorMap, clickedBtn) {
-            document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
-            clickedBtn.classList.add('active');
+    // 1. Buton stilini güncelle
+    document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
+    clickedBtn.classList.add('active');
 
-            const model = mv.model;
-            if (!model) return;
+    const model = mv.model;
+    if (!model) return;
 
-            // 1. Materyalleri Boya
-            for (const material of model.materials) {
-                const materialName = material.name;
-                if (colorMap[materialName]) {
-                    material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
-                }
-            }
-
-            // 2. AR ÖNBELLEĞİNİ PATLAT (ASIL ÇÖZÜM BURASI)
-            // model-viewer'a "İçerik değişti, AR dosyasını yeniden üret" diyoruz.
-            // Bu satır olmazsa telefon eski seçtiğin rengi hatırlar.
-            
-            // Sahneyi anlık olarak tazele
-            const currentSrc = mv.src;
-            mv.src = currentSrc; 
-            
-            // Apple (iOS) için Quick Look dosyasını geçersiz kıl
-            if (navigator.userAgent.match(/iPhone|iPad|iPod/i)) {
-                mv.setAttribute('ios-src', ''); // Önce boşalt
-                setTimeout(() => {
-                    mv.removeAttribute('ios-src'); // Sonra tamamen kaldır ki yeni USDZ üretsin
-                }, 10);
-            }
+    // 2. Renkleri uygula
+    for (const material of model.materials) {
+        const materialName = material.name;
+        if (colorMap[materialName]) {
+            material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
         }
+    }
+
+    // 3. --- KRİTİK: AR MOTORUNU ZORLA GÜNCELLE ---
+    // Bu işlem AR motorunun (Scene Viewer/Quick Look) önbelleğini temizler
+    // ve seçtiğin rengi AR dünyasına "taşır".
+    if (mv.canActivateAR) {
+        const currentSrc = mv.src;
+        // Modeli milisaniyelik boşaltıp geri yüklüyoruz, bu AR paketini tazeler
+        mv.src = ''; 
+        setTimeout(() => {
+            mv.src = currentSrc;
+        }, 10);
+    }
+}
 
         function showError(title, desc) {
             spinner.style.display = 'none';
