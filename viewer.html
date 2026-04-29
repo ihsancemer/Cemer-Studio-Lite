@@ -7,37 +7,29 @@
     
     <meta property="og:title" content="Cemer AR Deneyimi">
     <meta property="og:description" content="Ürünü gerçek dünyada, kendi alanınızda görün.">
-    <meta name="twitter:card" content="summary_large_image">
-
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600&display=swap" rel="stylesheet">
-    
     <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 
     <style>
         :root { --cemer-turk: #19b0c7; --bg: #f7f5f2; --white: #ffffff; }
-        
         body { margin: 0; background: var(--bg); font-family: 'Outfit', sans-serif; overflow: hidden; }
         
         model-viewer { 
             width: 100vw; height: 100vh; 
             background-color: var(--bg);
             --progress-bar-color: var(--cemer-turk);
-            --progress-bar-height: 4px;
         }
 
-        /* AR Butonu - Profesyonel Stil */
         .ar-button {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
             background: var(--cemer-turk); color: white; border: none;
             padding: 16px 32px; border-radius: 50px; font-weight: 600; cursor: pointer;
             box-shadow: 0 10px 25px rgba(25, 176, 199, 0.4); 
             z-index: 10; display: none; font-size: 14px;
-            display: flex; align-items: center; gap: 10px;
+            align-items: center; gap: 10px;
             transition: transform 0.2s, background 0.2s;
         }
-        .ar-button:active { transform: translateX(-50%) scale(0.95); background: #1598ac; }
 
-        /* Varyasyon Paneli */
         .variant-container {
             position: absolute; top: 25px; left: 0; width: 100%;
             display: flex; justify-content: center; gap: 12px; z-index: 20; 
@@ -51,7 +43,6 @@
         }
         .variant-btn.active { background: var(--cemer-turk); color: white; border-color: var(--cemer-turk); }
 
-        /* Status Overlay */
         #status-ov { 
             position: fixed; inset: 0; background: var(--bg); 
             display: flex; flex-direction: column; align-items: center; justify-content: center; 
@@ -62,19 +53,15 @@
             border-radius: 50%; width: 45px; height: 45px; 
             animation: spin 1s linear infinite; margin-bottom: 20px; 
         }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
         
         #load-bar { width: 150px; height: 4px; background: #ddd; border-radius: 2px; overflow: hidden; margin-top: 10px; }
         #load-fill { width: 0%; height: 100%; background: var(--cemer-turk); transition: width 0.3s; }
 
-        /* Hata Kartı */
         #error-card { 
             display: none; background: white; padding: 30px; border-radius: 15px; 
             box-shadow: 0 15px 35px rgba(0,0,0,0.1); text-align: center; max-width: 80%; 
         }
-
-        /* iOS AR Logosu Gizleme (Opsiyonel) */
-        #ar-button-icon { width: 20px; height: 20px; }
     </style>
 </head>
 <body>
@@ -95,7 +82,7 @@
 
     <model-viewer id="mv" 
         ar 
-        ar-modes="scene-viewer webxr quick-look" 
+        ar-modes="webxr scene-viewer quick-look" 
         ar-scale="fixed"
         camera-controls 
         touch-action="pan-y"
@@ -110,11 +97,9 @@
         alt="Cemer 3D Ürün Modeli">
         
         <button slot="ar-button" class="ar-button" id="ar-trigger">
-            <svg id="ar-button-icon" viewBox="0 0 24 24" fill="white"><path d="M7 11V7H11V5H7C5.9 5 5 5.9 5 7V11H7ZM17 7V11H19V7C19 5.9 18.1 5 17 5H13V7H17ZM17 17H13V19H17C18.1 19 19 18.1 19 17V13H17V17ZM7 17V13H5V17C5 18.1 5.9 19 7 19H11V17H7ZM12 8C9.79 8 8 9.79 8 12C8 14.21 9.79 16 12 16C14.21 16 16 14.21 16 12C16 9.79 14.21 8 12 8Z"/></svg>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M7 11V7H11V5H7C5.9 5 5 5.9 5 7V11H7ZM17 7V11H19V7C19 5.9 18.1 5 17 5H13V7H17ZM17 17H13V19H17C18.1 19 19 18.1 19 17V13H17V17ZM7 17V13H5V17C5 18.1 5.9 19 7 19H11V17H7ZM12 8C9.79 8 8 9.79 8 12C8 14.21 9.79 16 12 16C14.21 16 16 14.21 16 12C16 9.79 14.21 8 12 8Z"/></svg>
             GERÇEK DÜNYADA GÖR
         </button>
-
-        <div slot="progress-bar"></div>
     </model-viewer>
 
     <script>
@@ -124,17 +109,16 @@
         const statusOv = document.getElementById('status-ov');
         const loadFill = document.getElementById('load-fill');
         const errorCard = document.getElementById('error-card');
-        const spinner = document.getElementById('main-spinner');
 
         if (!modelId) {
-            showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullandığınızdan emin olun.");
+            showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullanın.");
         } else {
             const baseUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/${modelId}`;
             
             mv.src = `${baseUrl}-3d.glb`;
             
-            // KRİTİK: Apple için ios-src özelliğini KESİNLİKLE set etmiyoruz.
-            // Eğer HTML içinde varsa bile JavaScript ile kaldırıyoruz.
+            // APPLE (iOS) İÇİN ÖNEMLİ: ios-src niteliğini kaldırıyoruz.
+            // Bu sayede Apple cihazlar anlık renkli haliyle USDZ üretecek.
             mv.removeAttribute('ios-src'); 
 
             loadVariations(`${baseUrl}-vars.json`);
@@ -142,9 +126,6 @@
             mv.addEventListener('progress', (ev) => {
                 const progress = ev.detail.totalProgress * 100;
                 loadFill.style.width = `${progress}%`;
-                if(progress >= 100) {
-                    document.getElementById('status-text').innerText = "Görselleştiriliyor...";
-                }
             });
 
             mv.addEventListener('load', () => {
@@ -154,9 +135,7 @@
             });
 
             mv.addEventListener('error', (e) => {
-                if (e.detail && e.detail.type === 'loadfailure') {
-                    showError("Ürün Bulunamadı", `Ürün dosyası mevcut değil.`);
-                }
+                showError("Model Bulunamadı", "Dosya sunucuda mevcut değil.");
             });
         }
 
@@ -166,53 +145,51 @@
                 if (!response.ok) return; 
                 const vars = await response.json();
                 if (vars.length === 0) return;
+                
                 const container = document.getElementById('variant-list');
-                vars.forEach((v, index) => {
+                vars.forEach((v) => {
                     const btn = document.createElement('button');
-                    btn.className = `variant-btn ${index === 0 ? 'active' : ''}`;
+                    btn.className = `variant-btn`;
                     btn.innerText = v.name;
                     btn.onclick = () => applyVariation(v.colors, btn);
                     container.appendChild(btn);
                 });
-            } catch (e) { console.warn("Varyasyon hatası."); }
+            } catch (e) { console.warn("Varyasyon yok."); }
         }
 
         function applyVariation(colorMap, clickedBtn) {
-    // 1. Buton stilini güncelle
-    document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
-    clickedBtn.classList.add('active');
+            // 1. Buton Aktiflik Durumu
+            document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
+            clickedBtn.classList.add('active');
 
-    const model = mv.model;
-    if (!model) return;
+            const model = mv.model;
+            if (!model) return;
 
-    // 2. Renkleri uygula
-    for (const material of model.materials) {
-        const materialName = material.name;
-        if (colorMap[materialName]) {
-            material.pbrMetallicRoughness.setBaseColorFactor(colorMap[materialName]);
+            // 2. Renkleri Uygula
+            for (const material of model.materials) {
+                if (colorMap[material.name]) {
+                    material.pbrMetallicRoughness.setBaseColorFactor(colorMap[material.name]);
+                }
+            }
+
+            // 3. AR MOTORUNU ZORLA GÜNCELLE (Mavi seçince sarı gelmemesi için)
+            if (mv.canActivateAR) {
+                const currentSrc = mv.src;
+                // Modeli milisaniyelik boşaltıp geri yüklüyoruz (Cache temizliği)
+                mv.src = ''; 
+                setTimeout(() => {
+                    mv.src = currentSrc;
+                }, 50);
+            }
         }
-    }
-
-    // 3. --- KRİTİK: AR MOTORUNU ZORLA GÜNCELLE ---
-    // Bu işlem AR motorunun (Scene Viewer/Quick Look) önbelleğini temizler
-    // ve seçtiğin rengi AR dünyasına "taşır".
-    if (mv.canActivateAR) {
-        const currentSrc = mv.src;
-        // Modeli milisaniyelik boşaltıp geri yüklüyoruz, bu AR paketini tazeler
-        mv.src = ''; 
-        setTimeout(() => {
-            mv.src = currentSrc;
-        }, 10);
-    }
-}
 
         function showError(title, desc) {
-            spinner.style.display = 'none';
+            document.getElementById('main-spinner').style.display = 'none';
             document.getElementById('load-bar').style.display = 'none';
             document.getElementById('status-text').style.display = 'none';
             errorCard.style.display = 'block';
             errorCard.querySelector('h3').innerText = title;
-            document.getElementById('error-desc').innerHTML = desc;
+            document.getElementById('error-desc').innerText = desc;
         }
     </script>
 </body>
