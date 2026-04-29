@@ -175,21 +175,30 @@
   let currentSerialFilter = 'all';
 
   async function init() {
-    const { data: { session } } = await _supabase.auth.getSession();
-    if (!session) { window.location.href = 'login.html'; return; }
+    // Oturum kontrolü
+    const { data: { session }, error: sessionError } = await _supabase.auth.getSession();
+    
+    if (sessionError || !session) { 
+        console.warn("Oturum bulunamadı, login sayfasına yönlendiriliyor...");
+        window.location.href = 'login.html'; 
+        return; 
+    }
     
     currentUser = session.user;
     document.getElementById('user-box').style.display = 'block';
     document.getElementById('user-email-display').textContent = currentUser.email;
     
+    // Verileri yükle
     await loadModels();
     
+    // Event listener'lar
     document.getElementById('search-input').addEventListener('input', applyFilters);
     document.getElementById('sort-select').addEventListener('change', applyFilters);
   }
 
   async function loadModels() {
-    console.log("Modeller yükleniyor...");
+    console.log("Modeller yükleniyor... Kullanıcı ID:", currentUser.id);
+    
     const { data, error } = await _supabase
       .from('models')
       .select('*')
@@ -197,12 +206,15 @@
       .order('created_at', { ascending: false });
 
     if (error) {
-        console.error("Veritabanı hatası:", error);
+        console.error("Supabase Veritabanı Hatası:", error.message);
+        const grid = document.getElementById('model-grid');
+        grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--red);">Veri yüklenemedi: ${error.message}</div>`;
         return;
     }
 
-    console.log("Gelen veri sayısı:", data.length);
+    console.log("Veritabanından gelen toplam model sayısı:", data ? data.length : 0);
     allModels = data || [];
+    
     renderSerialTabs();
     applyFilters();
     
@@ -211,7 +223,9 @@
 
   function renderSerialTabs() {
     const container = document.getElementById('serial-tabs');
-    const serials = [...new Set(allModels.map(m => m.serial_code).filter(s => s))].sort();
+    // Benzersiz seri kodlarını çek ve temizle
+    const serials = [...new Set(allModels.map(m => m.serial_code).filter(s => s && s.trim() !== ""))].sort();
+    
     document.getElementById('stat-serials').textContent = serials.length;
 
     container.innerHTML = serials.map(s => `
@@ -223,6 +237,8 @@
 
   function filterBySerial(serial) {
     currentSerialFilter = serial;
+    
+    // UI Aktiflik Durumu
     document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
     if(serial === 'all') {
         document.getElementById('tab-all').classList.add('active');
@@ -232,6 +248,7 @@
         if(activeTab) activeTab.classList.add('active');
         document.getElementById('current-tab-title').textContent = serial + " Serisi";
     }
+    
     applyFilters();
   }
 
@@ -240,23 +257,26 @@
     const searchTerm = document.getElementById('search-input').value.toLowerCase();
     const sortBy = document.getElementById('sort-select').value;
 
+    // 1. Seri Filtresi
     if (currentSerialFilter !== 'all') {
         filtered = filtered.filter(m => m.serial_code === currentSerialFilter);
     }
 
+    // 2. Arama Filtresi (İsim ve Seri Kodunda arar)
     if (searchTerm) {
         filtered = filtered.filter(m => 
-            m.name.toLowerCase().includes(searchTerm) || 
+            (m.name && m.name.toLowerCase().includes(searchTerm)) || 
             (m.serial_code && m.serial_code.toLowerCase().includes(searchTerm))
         );
     }
 
+    // 3. Sıralama Mantığı
     filtered.sort((a, b) => {
         switch (sortBy) {
             case 'date-desc': return new Date(b.created_at) - new Date(a.created_at);
             case 'date-asc': return new Date(a.created_at) - new Date(b.created_at);
-            case 'name-asc': return a.name.localeCompare(b.name);
-            case 'name-desc': return b.name.localeCompare(a.name);
+            case 'name-asc': return (a.name || "").localeCompare(b.name || "");
+            case 'name-desc': return (b.name || "").localeCompare(a.name || "");
             default: return 0;
         }
     });
@@ -268,23 +288,30 @@
   function renderModels(list) {
     const grid = document.getElementById('model-grid');
     if (list.length === 0) {
-      grid.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:80px; opacity:0.5;">Model bulunamadı.</div>`;
+      grid.innerHTML = `
+        <div style="grid-column:1/-1; text-align:center; padding:80px; border:2px dashed var(--border); border-radius:12px; background: var(--bg2);">
+          <div style="font-size: 40px; margin-bottom: 15px;">🔍</div>
+          <div style="font-weight: 700; margin-bottom: 5px;">Model Bulunamadı</div>
+          <div style="color: var(--text3); font-size: 13px;">Arama kriterlerinize uygun model bulunmuyor veya henüz yüklenmemiş.</div>
+        </div>`;
       return;
     }
 
     grid.innerHTML = list.map(m => {
       const { data: thumbData } = _supabase.storage.from('models').getPublicUrl(`${m.name}-thumb.webp`);
+      // Cache'i aşmak için zaman damgası (thumbnail güncellemeleri için)
+      const thumbUrlWithCache = `${thumbData.publicUrl}?t=${new Date(m.created_at).getTime()}`;
       const dateStr = new Date(m.created_at).toLocaleDateString('tr-TR');
 
       return `
       <div class="model-card">
         <div class="model-thumb">
-          <img src="${thumbData.publicUrl}?t=${new Date(m.created_at).getTime()}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x180?text=Model+Hazirlaniyor'">
+          <img src="${thumbUrlWithCache}" style="width:100%; height:100%; object-fit:cover;" onerror="this.src='https://via.placeholder.com/300x180?text=Gorsel+Yukleniyor'">
         </div>
         <div class="model-body">
-          <div class="model-name">${m.name.toUpperCase()}</div>
+          <div class="model-name">${(m.name || "İsimsiz Model").toUpperCase()}</div>
           <div class="model-meta">
-            <span style="color:var(--accent); font-weight:600;">Seri: ${m.serial_code || 'Belirtilmedi'}</span>
+            <span style="color:var(--accent); font-weight:600;">Seri: ${m.serial_code || 'Genel'}</span>
             <span>${dateStr}</span>
           </div>
           <div class="model-actions">
@@ -309,26 +336,38 @@
   }
 
   function copyModalLink() {
-    navigator.clipboard.writeText(document.getElementById('link-modal-url').textContent).then(() => showToast("Kopyalandı!"));
+    const url = document.getElementById('link-modal-url').textContent;
+    navigator.clipboard.writeText(url).then(() => showToast("Kopyalandı!"));
   }
 
   async function deleteModel(id, name) {
     if(!confirm(`"${name}" ürününü kütüphaneden silmek istediğinize emin misiniz?`)) return;
     try {
+        // Storage dosyalarını temizle
         await _supabase.storage.from('models').remove([`${name}-3d.glb`, `${name}-thumb.webp`, `${name}-vars.json`]);
-        await _supabase.from('models').delete().eq('id', id);
+        // Veritabanı kaydını sil
+        const { error } = await _supabase.from('models').delete().eq('id', id);
+        if(error) throw error;
+        
         showToast("Ürün silindi.");
         loadModels();
-    } catch (err) { alert("Hata: " + err.message); }
+    } catch (err) { 
+        alert("Silme hatası: " + err.message); 
+    }
   }
 
   function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-  function showToast(msg) { 
-    const t = document.getElementById('toast'); 
-    t.textContent = msg; t.classList.add('show'); 
-    setTimeout(() => t.classList.remove('show'), 3000); 
+  
+  function showToast(msg) { 
+    const t = document.getElementById('toast'); 
+    t.textContent = msg; 
+    t.classList.add('show'); 
+    setTimeout(() => t.classList.remove('show'), 3000); 
   }
-  function signOut() { _supabase.auth.signOut().then(() => window.location.href = 'login.html'); }
+
+  function signOut() { 
+    _supabase.auth.signOut().then(() => window.location.href = 'login.html'); 
+  }
 
   init();
 </script>
