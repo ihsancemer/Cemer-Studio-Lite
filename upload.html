@@ -178,17 +178,25 @@
             });
 
             document.getElementById('btn-tex').onclick = () => document.getElementById('tex-input').click();
+            // TEXTURE (DOKU) YÜKLEME - DÜZELTİLDİ VE GÜÇLENDİRİLDİ
             document.getElementById('tex-input').onchange = (e) => {
                 if(!selectedMesh || !e.target.files[0]) return;
                 const reader = new FileReader();
                 reader.onload = (re) => {
-                    new THREE.TextureLoader().load(re.target.result, (tex) => {
-                        history.push({ type: 'tex', obj: selectedMesh, val: selectedMesh.material.map });
+                    const img = new Image();
+                    img.src = re.target.result;
+                    img.onload = () => {
+                        const tex = new THREE.Texture(img);
                         tex.colorSpace = THREE.SRGBColorSpace;
-                        tex.flipY = false;
+                        tex.flipY = false; // GLTF standardı
+                        tex.wrapS = THREE.RepeatWrapping; // Sündürmeyi engeller
+                        tex.wrapT = THREE.RepeatWrapping;
+                        tex.needsUpdate = true;
+                        
+                        history.push({ type: 'tex', obj: selectedMesh, val: selectedMesh.material.map });
                         selectedMesh.material.map = tex;
                         selectedMesh.material.needsUpdate = true;
-                    });
+                    };
                 };
                 reader.readAsDataURL(e.target.files[0]);
             };
@@ -231,20 +239,25 @@
             };
 
             // VARYASYON EKLEME
+           // VARYASYON EKLEME - DÜZELTİLDİ (RGBA ve Materyal İsmine Göre)
             document.getElementById('btn-add-var').onclick = () => {
                 if(!currentModel) return;
                 const vName = document.getElementById('var-name').value || `Varyasyon ${variations.length + 1}`;
                 const config = {};
+                
                 currentModel.traverse(m => {
-                    if(m.isMesh && m.material && m.material.color) {
-                        config[m.name || m.uuid] = "#" + m.material.color.getHexString();
+                    // Parça ismine göre değil, Materyal ismine göre kaydediyoruz
+                    if(m.isMesh && m.material && m.material.name) {
+                        const c = m.material.color;
+                        // HEX (#ff0000) yerine AR motorunun anladığı RGBA [1, 0, 0, 1] dizisi kullanıyoruz
+                        config[m.material.name] = [c.r, c.g, c.b, m.material.opacity || 1];
                     }
                 });
+                
                 variations.push({ name: vName, colors: config });
                 renderVars();
                 document.getElementById('var-name').value = '';
             };
-        }
 
         function renderVars() {
             const list = document.getElementById('var-list');
