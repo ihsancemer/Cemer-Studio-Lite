@@ -92,11 +92,10 @@
             </div>
         </div>
     </div>
-
-    <script type="module">
+<script type="module">
         import * as THREE from 'three';
         import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-        import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'; // BUNU YENİ EKLEDİK
+        import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
         import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
         import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
         import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -178,7 +177,8 @@
             });
 
             document.getElementById('btn-tex').onclick = () => document.getElementById('tex-input').click();
-            // TEXTURE (DOKU) YÜKLEME - DÜZELTİLDİ VE GÜÇLENDİRİLDİ
+            
+            // --- TEXTURE (DOKU) YÜKLEME - GELİŞTİRİLMİŞ ---
             document.getElementById('tex-input').onchange = (e) => {
                 if(!selectedMesh || !e.target.files[0]) return;
                 const reader = new FileReader();
@@ -188,14 +188,17 @@
                     img.onload = () => {
                         const tex = new THREE.Texture(img);
                         tex.colorSpace = THREE.SRGBColorSpace;
-                        tex.flipY = false; // GLTF standardı
-                        tex.wrapS = THREE.RepeatWrapping; // Sündürmeyi engeller
-                        tex.wrapT = THREE.RepeatWrapping;
+                        tex.flipY = false; 
+                        
+                        // Dokunun sündürülmesini engeller ve parçaya yayılmasını sağlar
+                        tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+                        tex.repeat.set(1, 1); 
+                        
                         tex.needsUpdate = true;
                         
                         history.push({ type: 'tex', obj: selectedMesh, val: selectedMesh.material.map });
                         selectedMesh.material.map = tex;
-                        selectedMesh.material.needsUpdate = true;
+                        selectedMesh.material.needsUpdate = true; 
                     };
                 };
                 reader.readAsDataURL(e.target.files[0]);
@@ -238,18 +241,17 @@
                 sunLight.position.set(Math.cos(angle) * 10, 8, Math.sin(angle) * 10);
             };
 
-            // VARYASYON EKLEME
-           // VARYASYON EKLEME - DÜZELTİLDİ (RGBA ve Materyal İsmine Göre)
+            // --- VARYASYON EKLEME - DÜZELTİLDİ ---
             document.getElementById('btn-add-var').onclick = () => {
                 if(!currentModel) return;
                 const vName = document.getElementById('var-name').value || `Varyasyon ${variations.length + 1}`;
                 const config = {};
                 
                 currentModel.traverse(m => {
-                    // Parça ismine göre değil, Materyal ismine göre kaydediyoruz
+                    // Materyal ismine göre kayıt yapıyoruz (Viewer bu ismi arar)
                     if(m.isMesh && m.material && m.material.name) {
                         const c = m.material.color;
-                        // HEX (#ff0000) yerine AR motorunun anladığı RGBA [1, 0, 0, 1] dizisi kullanıyoruz
+                        // Viewer'ın AR'da da okuyabileceği RGBA Dizisi [R, G, B, Opacity]
                         config[m.material.name] = [c.r, c.g, c.b, m.material.opacity || 1];
                     }
                 });
@@ -258,6 +260,7 @@
                 renderVars();
                 document.getElementById('var-name').value = '';
             };
+        }
 
         function renderVars() {
             const list = document.getElementById('var-list');
@@ -305,7 +308,8 @@
             if (selectedMesh) selectionBox.setFromObject(selectedMesh);
         }
 
-       document.getElementById('file-input').onchange = (e) => {
+        // --- MODEL YÜKLEME VE BUG ÇÖZÜMÜ ---
+        document.getElementById('file-input').onchange = (e) => {
             const file = e.target.files[0];
             if(!file) return;
             
@@ -313,8 +317,6 @@
             document.getElementById('loading-ov').style.display = 'flex';
 
             const loader = new GLTFLoader();
-
-            // DRACO ŞİFRE ÇÖZÜCÜ EKLENDİ
             const dracoLoader = new DRACOLoader();
             dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/');
             loader.setDRACOLoader(dracoLoader);
@@ -328,27 +330,28 @@
                     const center = box.getCenter(new THREE.Vector3());
                     currentModel.position.set(-center.x, -box.min.y, -center.z);
                     scene.add(currentModel);
+                    
+                    // Bug Çözümü: Input değerini sıfırla ki aynı dosya tekrar seçilebilsin
+                    e.target.value = ""; 
                     document.getElementById('loading-ov').style.display = 'none';
                 },
-                undefined, // İlerleme (Progress) boş geçiliyor
+                undefined,
                 (error) => {
-                    // EĞER MODEL YİNE AÇILMAZSA SEBEBİNİ BURADA SÖYLEYECEK
                     console.error("Yükleme Hatası:", error);
                     alert("🚨 MODEL AÇILAMADI:\n" + error.message);
+                    e.target.value = "";
                     document.getElementById('loading-ov').style.display = 'none';
                 }
             );
         };
 
         // GÜVENLİ KAYIT SİSTEMİ
-        // GÜVENLİ KAYIT SİSTEMİ VE KATI HATA YAKALAYICI
         document.getElementById('btn-save').onclick = async () => {
             if(!currentModel) return;
             
             const nameRaw = prompt("Model İsmi Girin (Örn: cemer_kaydirak):", "cemer_model");
             if(!nameRaw) return;
             
-            // Türkçe ve boşluk temizliği
             const name = nameRaw.trim()
                 .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u')
                 .replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
@@ -364,75 +367,65 @@
                 const { data: { user } } = await _supabase.auth.getUser();
                 if(!user) throw new Error("Oturum bulunamadı. Lütfen tekrar giriş yapın.");
 
-                // Thumbnail Yakala
                 grid.visible = false; selectionBox.visible = false;
                 renderer.render(scene, camera);
                 const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
                 grid.visible = true;
 
                 const exporter = new GLTFExporter();
-                
-                // Three.js versiyon farklarını aşmak için ayarı direkt 3. parametre olarak veriyoruz
-                exporter.parse(currentModel, async (buffer) => {
-                    
-                    // İŞTE HAYAT KURTARAN KONTROL! Eğer dosya bozuk çevrildiyse işlemi durdurur.
-                    if (!(buffer instanceof ArrayBuffer)) {
-                        alert("🚨 EXPORT HATASI: Tarayıcınız modeli 3D Binary formata çeviremedi! Lütfen sayfayı yenileyip tekrar deneyin.");
-                        document.getElementById('loading-ov').style.display = 'none';
-                        return;
-                    }
-
-                    try {
-                        const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
-
-                        const thumbRes = await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
-                        if (thumbRes.error) throw new Error("Resim yüklenemedi: " + thumbRes.error.message);
-
-                        const glbRes = await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
-                        if (glbRes.error) throw new Error("3D Model depoya yüklenemedi: " + glbRes.error.message);
-                        
-                        if(variations.length > 0) {
-                            const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
-                            await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
+                exporter.parse(
+                    currentModel, 
+                    async (buffer) => {
+                        if (!(buffer instanceof ArrayBuffer)) {
+                            alert("🚨 EXPORT HATASI: Model Binary formata çevrilemedi!");
+                            document.getElementById('loading-ov').style.display = 'none';
+                            return;
                         }
 
-                        const dbRes = await _supabase.from('models').insert([{
-                            user_id: user.id,
-                            name: name,
-                            exposure: renderer.toneMappingExposure,
-                            shadow_intensity: 1.0
-                        }]);
-                        if (dbRes.error) throw new Error("Veritabanı kaydı başarısız: " + dbRes.error.message);
+                        try {
+                            const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
+                            await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
+                            await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
+                            
+                            if(variations.length > 0) {
+                                const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
+                                await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
+                            }
 
-                        alert("🎉 Başarıyla kütüphaneye eklendi!");
-                        window.location.href = 'dashboard.html';
+                            await _supabase.from('models').insert([{
+                                user_id: user.id,
+                                name: name,
+                                exposure: renderer.toneMappingExposure,
+                                shadow_intensity: 1.0
+                            }]);
 
-                    } catch (innerErr) {
-                        alert("🚨 YÜKLEME İPTAL EDİLDİ:\n" + innerErr.message);
-                        document.getElementById('loading-ov').style.display = 'none';
-                    }
-}, 
+                            alert("🎉 Başarıyla kütüphaneye eklendi!");
+                            window.location.href = 'dashboard.html';
+                        } catch (innerErr) {
+                            alert("🚨 YÜKLEME İPTAL EDİLDİ:\n" + innerErr.message);
+                            document.getElementById('loading-ov').style.display = 'none';
+                        }
+                    }, 
                     function (error) { 
                         alert("🚨 3D DÖNÜŞTÜRME HATASI:\n" + error);
                         document.getElementById('loading-ov').style.display = 'none';
                     }, 
                     { binary: true } 
                 );
-
             } catch (err) {
                 alert("🚨 SİSTEM HATASI:\n" + err.message);
                 document.getElementById('loading-ov').style.display = 'none';
             }
         };
-        // EKSİK OLAN VE SİSTEMİ AYAKTA TUTAN DÖNGÜ
+
         function animate() {
             requestAnimationFrame(animate);
             if (orbit) orbit.update();
             if (renderer && scene && camera) renderer.render(scene, camera);
         }
 
-        // MOTORU ÇALIŞTIR! (Bunu silmişiz, o yüzden sahne yoktu)
         init();
     </script>
+   
 </body>
 </html>
