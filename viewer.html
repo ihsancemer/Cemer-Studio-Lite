@@ -105,89 +105,122 @@
     </model-viewer>
 
     <script>
-        const params = new URLSearchParams(window.location.search);
-        // ID çekme mantığını sağlamlaştırdık
-        const modelId = decodeURIComponent(params.get('model') || params.get('id') || "");
-        const mv = document.getElementById('mv');
-        const statusOv = document.getElementById('status-ov');
-        const loadFill = document.getElementById('load-fill');
-        const errorCard = document.getElementById('error-card');
+    const params = new URLSearchParams(window.location.search);
+    
+    // 1. Parametre alımını sağlamlaştırdık (Boşlukları ve gizli karakterleri temizler)
+    const modelId = decodeURIComponent(params.get('model') || params.get('id') || "").trim();
+    
+    const mv = document.getElementById('mv');
+    const statusOv = document.getElementById('status-ov');
+    const loadFill = document.getElementById('load-fill');
+    const errorCard = document.getElementById('error-card');
 
-        if (!modelId) {
-            showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullanın.");
-        } else {
-            // URL yapılandırmasını kontrol ettik
-            const baseUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/${modelId}`;
-            
-            // Dosya yolunu konsola yazdır (Hata ayıklama için)
-            console.log("Yüklenen Model Path:", `${baseUrl}-3d.glb`);
-            
-            mv.src = `${baseUrl}-3d.glb`;
-            
-            // iOS için USDZ'yi anlık oluşturması için ios-src'yi boş bırakıyoruz
-            mv.removeAttribute('ios-src'); 
+    if (!modelId) {
+        showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullanın.");
+    } else {
+        // 2. URL Yapılandırması (Senin çalışan manuel linkinle birebir uyumlu hale getirildi)
+        const bucketPath = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/`;
+        const modelUrl = `${bucketPath}${modelId}-3d.glb`;
+        const varsUrl = `${bucketPath}${modelId}-vars.json`;
+        
+        // Konsola yazdırıyoruz ki F12'den kontrol edebilesin
+        console.log("🛠️ Denenen Model URL:", modelUrl);
+        
+        // Modeli yükle
+        mv.src = modelUrl;
+        
+        // iOS için USDZ üretimini tetiklemek adına ios-src'yi temizliyoruz
+        mv.removeAttribute('ios-src'); 
 
-            loadVariations(`${baseUrl}-vars.json`);
+        // Varyasyonları yükle
+        loadVariations(varsUrl);
 
-            mv.addEventListener('progress', (ev) => {
-                const progress = ev.detail.totalProgress * 100;
-                loadFill.style.width = `${progress}%`;
-            });
+        // Yükleme ilerleme takibi
+        mv.addEventListener('progress', (ev) => {
+            const progress = ev.detail.totalProgress * 100;
+            if (loadFill) loadFill.style.width = `${progress}%`;
+        });
 
-            mv.addEventListener('load', () => {
-                console.log("Model başarıyla yüklendi.");
+        // Başarılı yükleme
+        mv.addEventListener('load', () => {
+            console.log("✅ Model başarıyla sahneye yüklendi.");
+            if (statusOv) {
                 statusOv.style.opacity = '0';
                 setTimeout(() => statusOv.style.display = 'none', 500);
-                document.getElementById('ar-trigger').style.display = 'flex';
-            });
+            }
+            const arBtn = document.getElementById('ar-trigger');
+            if (arBtn) arBtn.style.display = 'flex';
+        });
 
-            mv.addEventListener('error', (e) => {
-                console.error("Model Viewer Hatası:", e);
-                showError("Model Bulunamadı", `"${modelId}-3d.glb" dosyası sunucuda mevcut değil veya erişim engellendi.`);
+        // Hata yönetimi
+        mv.addEventListener('error', (e) => {
+            console.error("❌ Model Viewer Hatası:", e);
+            showError("Model Bulunamadı", 
+                `"${modelId}-3d.glb" dosyasına erişilemiyor. \n\n` + 
+                `İpucu: Dashboard'daki ürün isminin (${modelId}) Storage'daki dosya ismiyle birebir aynı (tire/alt tire dahil) olduğundan emin olun.`
+            );
+        });
+    }
+
+    // Varyasyonları dosyadan çekme
+    async function loadVariations(url) {
+        try {
+            const response = await fetch(`${url}?t=${Date.now()}`);
+            if (!response.ok) {
+                console.log("ℹ️ Bu ürün için varyasyon dosyası bulunamadı.");
+                return; 
+            }
+            const vars = await response.json();
+            if (!vars || vars.length === 0) return;
+            
+            const container = document.getElementById('variant-list');
+            if (!container) return;
+
+            container.innerHTML = ""; // Önce temizle
+            vars.forEach((v) => {
+                const btn = document.createElement('button');
+                btn.className = `variant-btn`;
+                btn.innerText = v.name;
+                btn.onclick = () => applyVariation(v.colors, btn);
+                container.appendChild(btn);
             });
+        } catch (e) { 
+            console.warn("⚠️ Varyasyon sistemi başlatılamadı:", e); 
+        }
+    }
+
+    // Seçilen varyasyonu modele uygula
+    function applyVariation(colorMap, clickedBtn) {
+        document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
+        clickedBtn.classList.add('active');
+
+        if (!mv.model) {
+            console.error("Model henüz yüklenmediği için varyasyon uygulanamıyor.");
+            return;
         }
 
-        async function loadVariations(url) {
-            try {
-                const response = await fetch(`${url}?t=${Date.now()}`);
-                if (!response.ok) return; 
-                const vars = await response.json();
-                if (!vars || vars.length === 0) return;
-                
-                const container = document.getElementById('variant-list');
-                vars.forEach((v) => {
-                    const btn = document.createElement('button');
-                    btn.className = `variant-btn`;
-                    btn.innerText = v.name;
-                    btn.onclick = () => applyVariation(v.colors, btn);
-                    container.appendChild(btn);
-                });
-            } catch (e) { console.warn("Varyasyon dosyası yüklenemedi."); }
-        }
-
-        function applyVariation(colorMap, clickedBtn) {
-            document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
-            clickedBtn.classList.add('active');
-
-            if (!mv.model) return;
-
-            // Renkleri model-viewer standartlarına göre uygula
-            for (const material of mv.model.materials) {
-                if (colorMap[material.name]) {
-                    // Kaydedilen [r, g, b, a] dizisini uygula
-                    material.pbrMetallicRoughness.setBaseColorFactor(colorMap[material.name]);
-                }
+        // Malzeme bazlı renk değişimi
+        for (const material of mv.model.materials) {
+            if (colorMap[material.name]) {
+                // colorMap[material.name] -> [r, g, b, a] formatında olmalı
+                material.pbrMetallicRoughness.setBaseColorFactor(colorMap[material.name]);
             }
         }
+    }
 
-        function showError(title, desc) {
-            document.getElementById('main-spinner').style.display = 'none';
-            document.getElementById('load-bar').style.display = 'none';
-            document.getElementById('status-text').style.display = 'none';
+    // Hata mesajı gösterme fonksiyonu
+    function showError(title, desc) {
+        if (document.getElementById('main-spinner')) document.getElementById('main-spinner').style.display = 'none';
+        if (document.getElementById('load-bar')) document.getElementById('load-bar').style.display = 'none';
+        if (document.getElementById('status-text')) document.getElementById('status-text').style.display = 'none';
+        
+        if (errorCard) {
             errorCard.style.display = 'block';
             errorCard.querySelector('h3').innerText = title;
-            document.getElementById('error-desc').innerText = desc;
+            const descEl = document.getElementById('error-desc');
+            if (descEl) descEl.innerText = desc;
         }
-    </script>
+    }
+</script>
 </body>
 </html>
