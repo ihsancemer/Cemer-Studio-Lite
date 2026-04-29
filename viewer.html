@@ -104,22 +104,35 @@
         </button>
     </model-viewer>
 
-    <script>
-    // viewer.html - Script başı
-const params = new URLSearchParams(window.location.search);
-const modelId = (params.get('model') || params.get('id') || "").trim().toLowerCase();
+<script>
+    const params = new URLSearchParams(window.location.search);
+    
+    // 1. PARAMETRE ALIMI VE UPLOAD İLE TAM UYUMLU TEMİZLEME
+    // Dashboard'dan gelen ham ismi alıyoruz
+    const rawId = decodeURIComponent(params.get('model') || params.get('id') || "");
 
-if (modelId) {
-    const bucketUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/`;
-    // Dashboard'dan gelen 'modelId' ile Storage'daki dosya ismi artık %100 eşleşecek
-    mv.src = `${bucketUrl}${modelId}-3d.glb`; 
-}
-        // 2. URL Yapılandırması (Senin çalışan manuel linkinle birebir uyumlu hale getirildi)
+    // Upload tarafındaki motorun aynısı: Küçük harf, TR karakter temizliği ve alt tire kuralı
+    const modelId = rawId.trim()
+        .toLowerCase()
+        .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+        .replace(/[^a-z0-9]/g, '_')
+        .replace(/__+/g, '_')
+        .replace(/^_|_$/g, '');
+
+    const mv = document.getElementById('mv');
+    const statusOv = document.getElementById('status-ov');
+    const loadFill = document.getElementById('load-fill');
+    const errorCard = document.getElementById('error-card');
+
+    if (!modelId) {
+        showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullanın.");
+    } else {
+        // 2. URL YAPILANDIRMASI
         const bucketPath = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/`;
         const modelUrl = `${bucketPath}${modelId}-3d.glb`;
         const varsUrl = `${bucketPath}${modelId}-vars.json`;
         
-        // Konsola yazdırıyoruz ki F12'den kontrol edebilesin
+        // Hata ayıklama için konsola temizlenmiş yolu basıyoruz
         console.log("🛠️ Denenen Model URL:", modelUrl);
         
         // Modeli yükle
@@ -153,7 +166,8 @@ if (modelId) {
             console.error("❌ Model Viewer Hatası:", e);
             showError("Model Bulunamadı", 
                 `"${modelId}-3d.glb" dosyasına erişilemiyor. \n\n` + 
-                `İpucu: Dashboard'daki ürün isminin (${modelId}) Storage'daki dosya ismiyle birebir aynı (tire/alt tire dahil) olduğundan emin olun.`
+                `İpucu: Dashboard'daki ürün isminin Storage'daki dosya ismiyle birebir aynı olduğundan emin olun. \n` +
+                `Aranan isim: ${modelId}`
             );
         });
     }
