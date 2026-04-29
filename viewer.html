@@ -105,19 +105,15 @@
     </model-viewer>
 
     <script>
-    const params = new URLSearchParams(window.location.search);
-    
-    // 1. Parametre alımını sağlamlaştırdık (Boşlukları ve gizli karakterleri temizler)
-    const modelId = decodeURIComponent(params.get('model') || params.get('id') || "").trim();
-    
-    const mv = document.getElementById('mv');
-    const statusOv = document.getElementById('status-ov');
-    const loadFill = document.getElementById('load-fill');
-    const errorCard = document.getElementById('error-card');
+    // viewer.html - Script başı
+const params = new URLSearchParams(window.location.search);
+const modelId = (params.get('model') || params.get('id') || "").trim().toLowerCase();
 
-    if (!modelId) {
-        showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullanın.");
-    } else {
+if (modelId) {
+    const bucketUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/`;
+    // Dashboard'dan gelen 'modelId' ile Storage'daki dosya ismi artık %100 eşleşecek
+    mv.src = `${bucketUrl}${modelId}-3d.glb`; 
+}
         // 2. URL Yapılandırması (Senin çalışan manuel linkinle birebir uyumlu hale getirildi)
         const bucketPath = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/`;
         const modelUrl = `${bucketPath}${modelId}-3d.glb`;
