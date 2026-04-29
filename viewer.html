@@ -110,7 +110,8 @@
     // 1. DASHBOARD'DAN GELEN İSMİ AL VE UPLOAD İLE AYNI MANTIKTA TEMİZLE
     const rawId = decodeURIComponent(params.get('model') || params.get('id') || "");
     
-    // Bu kısım Upload tarafındaki temizleme ile %100 aynı olmalı!
+    // Bu kısım Upload tarafındaki temizleme motoruyla %100 aynı:
+    // Küçük harf yapar, Türkçe karakterleri İngilizceye çevirir ve boşlukları alt tireye bağlar.
     const modelId = rawId.trim()
         .toLowerCase()
         .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
@@ -131,11 +132,13 @@
         const modelUrl = `${bucketPath}${modelId}-3d.glb`;
         const varsUrl = `${bucketPath}${modelId}-vars.json`;
         
+        console.log("🔍 PepperAR Sorgulanan Model ID:", modelId);
         console.log("🚀 Viewer'ın Aradığı Tam URL:", modelUrl);
-        console.log("🔍 Temizlenen Model ID:", modelId);
         
         // Modeli yükle
         mv.src = modelUrl;
+        
+        // iOS için otomatik USDZ üretimini tetiklemek adına ios-src'yi temizliyoruz
         mv.removeAttribute('ios-src'); 
 
         // Varyasyonları yükle
@@ -171,14 +174,19 @@
     // Varyasyonları dosyadan çekme
     async function loadVariations(url) {
         try {
+            // Önbellek sorununu önlemek için zaman damgası (Date.now) ekliyoruz
             const response = await fetch(`${url}?t=${Date.now()}`);
-            if (!response.ok) return; 
+            if (!response.ok) {
+                console.log("ℹ️ Bu ürün için varyasyon dosyası (.json) bulunamadı.");
+                return; 
+            }
             const vars = await response.json();
             if (!vars || vars.length === 0) return;
             
             const container = document.getElementById('variant-list');
             if (!container) return;
-            container.innerHTML = ""; 
+
+            container.innerHTML = ""; // Önceki varyasyonları temizle
             vars.forEach((v) => {
                 const btn = document.createElement('button');
                 btn.className = `variant-btn`;
@@ -186,30 +194,41 @@
                 btn.onclick = () => applyVariation(v.colors, btn);
                 container.appendChild(btn);
             });
-        } catch (e) { console.warn("Varyasyon dosyası bulunamadı."); }
+        } catch (e) { 
+            console.warn("⚠️ Varyasyon yükleme sırasında hata oluştu veya dosya yok."); 
+        }
     }
 
     // Seçilen varyasyonu modele uygula
     function applyVariation(colorMap, clickedBtn) {
         document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
         clickedBtn.classList.add('active');
-        if (!mv.model) return;
+
+        if (!mv.model) {
+            console.error("Model henüz hazır değil.");
+            return;
+        }
+
+        // Malzeme bazlı renk değişimi
         for (const material of mv.model.materials) {
             if (colorMap[material.name]) {
+                // Kaydedilen [r, g, b, a] dizisini uygula
                 material.pbrMetallicRoughness.setBaseColorFactor(colorMap[material.name]);
             }
         }
     }
 
+    // Hata mesajı gösterme fonksiyonu
     function showError(title, desc) {
         if (document.getElementById('main-spinner')) document.getElementById('main-spinner').style.display = 'none';
         if (document.getElementById('load-bar')) document.getElementById('load-bar').style.display = 'none';
         if (document.getElementById('status-text')) document.getElementById('status-text').style.display = 'none';
+        
         if (errorCard) {
             errorCard.style.display = 'block';
             errorCard.querySelector('h3').innerText = title;
             const descEl = document.getElementById('error-desc');
-            if (descEl) descEl.innerText = `${desc}\n\nAranan isim: ${modelId}`;
+            if (descEl) descEl.innerText = `${desc}\n\nAranan dosya: ${modelId}-3d.glb`;
         }
     }
 </script>
