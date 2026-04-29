@@ -21,10 +21,9 @@
         
         /* Modal ve Overlay Stilleri */
         #loading-ov, .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.9); display: none; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; backdrop-filter: blur(5px); }
-        .modal-backdrop { z-index: 2000; } /* Kayıt modalı en üstte */
+        .modal-backdrop { z-index: 2000; } 
         
         .panel { background: #151518; border: 1px solid var(--border); padding: 12px; border-radius: 8px; margin-bottom: 5px; }
-        
         input[type="color"] { width: 100%; height: 32px; border: none; border-radius: 4px; cursor: pointer; background: none; margin-bottom: 8px; }
         input[type="range"] { width: 100%; margin-bottom: 10px; accent-color: var(--accent); cursor: pointer; }
         input[type="text"] { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border); background: #0d0d0f; color: white; margin-bottom: 8px; box-sizing: border-box; font-size: 12px; font-family: inherit; }
@@ -40,13 +39,10 @@
     <div id="save-modal" class="modal-backdrop">
         <div class="panel" style="max-width: 360px; width: 90%; padding: 25px;">
             <div style="font-weight: 800; color: var(--accent); margin-bottom: 20px; font-size: 16px;">KÜTÜPHANEYE KAYDET</div>
-            
             <label class="label">Ürün İsmi</label>
             <input type="text" id="save-name" placeholder="Örn: Istanbul Serisi Vapur">
-            
             <label class="label">Seri Kod / Grup (Sekme Oluşturur)</label>
             <input type="text" id="save-serial" placeholder="Örn: IST-200 veya Istanbul">
-            
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <button class="btn primary" id="btn-confirm-save">KAYDET</button>
                 <button class="btn" onclick="document.getElementById('save-modal').style.display='none'">İPTAL</button>
@@ -194,6 +190,9 @@
             window.addEventListener('resize', onWindowResize);
             setupControls();
             animate();
+            
+            // DÜZENLEME MODU KONTROLÜ
+            checkEditMode();
         }
         
         function onWindowResize() {
@@ -239,7 +238,7 @@
                         tex.rotation = THREE.MathUtils.degToRad(document.getElementById('tex-rotate').value);
                         tex.needsUpdate = true;
                         selectedMesh.material.map = tex;
-                        selectedMesh.material.needsUpdate = true; 
+                        selectedMesh.material.needsUpdate = true; 
                     };
                 };
                 reader.readAsDataURL(e.target.files[0]);
@@ -301,8 +300,103 @@
                 renderVars();
                 document.getElementById('var-name').value = '';
             };
+
+            // MODALI TETİKLE
+            document.getElementById('btn-save').onclick = () => {
+                if(!currentModel) return;
+                document.getElementById('save-modal').style.display = 'flex';
+            };
+
+            // MODAL KAYIT BUTONU
+            document.getElementById('btn-confirm-save').onclick = async () => {
+                const nameRaw = document.getElementById('save-name').value;
+                const serialCode = document.getElementById('save-serial').value.trim();
+                
+                if(!nameRaw || !serialCode) { alert("Lütfen Ürün İsmi ve Seri Kodunu doldurun!"); return; }
+
+                const name = nameRaw.trim()
+                    .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
+                    .replace(/İ/g, 'i').replace(/Ğ/g, 'g').replace(/Ü/g, 'u').replace(/Ş/g, 's').replace(/Ö/g, 'o').replace(/Ç/g, 'c')
+                    .replace(/\s+/g, '_').toLowerCase();
+
+                document.getElementById('save-modal').style.display = 'none';
+                document.getElementById('loading-ov').style.display = 'flex';
+                document.getElementById('loading-text').innerText = "KÜTÜPHANEYE KAYDEDİLİYOR...";
+
+                try {
+                    const { data: { user } } = await _supabase.auth.getUser();
+                    if(!user) throw new Error("Oturum bulunamadı!");
+
+                    grid.visible = false; selectionBox.visible = false;
+                    composer.render();
+                    const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
+                    grid.visible = true;
+
+                    const exporter = new GLTFExporter();
+                    exporter.parse(currentModel, async (buffer) => {
+                        try {
+                            const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
+                            await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
+                            await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
+                            
+                            if(variations.length > 0) {
+                                const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
+                                await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
+                            }
+
+                            await _supabase.from('models').upsert([{
+                                user_id: user.id,
+                                name: name,
+                                serial_code: serialCode,
+                                exposure: renderer.toneMappingExposure,
+                                shadow_intensity: 1.0
+                            }], { onConflict: 'name' });
+
+                            window.location.href = 'dashboard.html';
+                        } catch (innerErr) { alert(innerErr.message); document.getElementById('loading-ov').style.display = 'none'; }
+                    }, undefined, { binary: true });
+                } catch (err) { alert(err.message); document.getElementById('loading-ov').style.display = 'none'; }
+            };
         }
         
+        async function checkEditMode() {
+            const editName = new URLSearchParams(window.location.search).get('edit');
+            if (!editName) return;
+
+            document.getElementById('loading-ov').style.display = 'flex';
+            document.getElementById('loading-text').innerText = "VERİLER YÜKLENİYOR...";
+
+            try {
+                const { data: dbData } = await _supabase.from('models').select('*').eq('name', editName).single();
+                if (dbData) {
+                    document.getElementById('save-name').value = dbData.name;
+                    document.getElementById('save-name').disabled = true;
+                    document.getElementById('save-serial').value = dbData.serial_code;
+                    if(dbData.exposure) renderer.toneMappingExposure = dbData.exposure;
+                }
+
+                const { data: glbRes } = _supabase.storage.from('models').getPublicUrl(`${editName}-3d.glb`);
+                const loader = new GLTFLoader();
+                const dracoLoader = new DRACOLoader();
+                dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/');
+                loader.setDRACOLoader(dracoLoader);
+
+                loader.load(glbRes.publicUrl, (gltf) => {
+                    if(currentModel) scene.remove(currentModel);
+                    currentModel = gltf.scene;
+                    scene.add(currentModel);
+                    const box = new THREE.Box3().setFromObject(currentModel);
+                    const center = box.getCenter(new THREE.Vector3());
+                    currentModel.position.set(-center.x, -box.min.y, -center.z);
+                    
+                    fetch(_supabase.storage.from('models').getPublicUrl(`${editName}-vars.json`).data.publicUrl + `?t=${Date.now()}`)
+                        .then(res => res.ok ? res.json() : [])
+                        .then(data => { variations = data; renderVars(); })
+                        .finally(() => document.getElementById('loading-ov').style.display = 'none');
+                });
+            } catch (err) { document.getElementById('loading-ov').style.display = 'none'; }
+        }
+
         function updateSelectedMeshColor() {
             if(!selectedMesh) return;
             const hex = document.getElementById('mesh-color').value;
@@ -372,7 +466,7 @@
                     const center = box.getCenter(new THREE.Vector3());
                     currentModel.position.set(-center.x, -box.min.y, -center.z);
                     scene.add(currentModel);
-                    e.target.value = ""; 
+                    e.target.value = ""; 
                     document.getElementById('loading-ov').style.display = 'none';
                 }, undefined, (error) => {
                     alert("🚨 MODEL AÇILAMADI:\n" + error.message);
@@ -382,70 +476,6 @@
             );
         };
 
-        // --- YENİ KAYIT SİSTEMİ ---
-        document.getElementById('btn-save').onclick = () => {
-            if(!currentModel) return;
-            document.getElementById('save-modal').style.display = 'flex';
-        };
-
-        document.getElementById('btn-confirm-save').onclick = async () => {
-            const nameRaw = document.getElementById('save-name').value;
-            const serialCode = document.getElementById('save-serial').value.trim();
-            
-            if(!nameRaw || !serialCode) { alert("Lütfen Ürün İsmi ve Seri Kodunu doldurun!"); return; }
-
-            const name = nameRaw.trim()
-                .replace(/ı/g, 'i').replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's').replace(/ö/g, 'o').replace(/ç/g, 'c')
-                .replace(/İ/g, 'i').replace(/Ğ/g, 'g').replace(/Ü/g, 'u').replace(/Ş/g, 's').replace(/Ö/g, 'o').replace(/Ç/g, 'c')
-                .replace(/\s+/g, '_').toLowerCase();
-
-            document.getElementById('save-modal').style.display = 'none';
-            document.getElementById('loading-ov').style.display = 'flex';
-            document.getElementById('loading-text').innerText = "KÜTÜPHANEYE KAYDEDİLİYOR...";
-
-            try {
-                const { data: { user } } = await _supabase.auth.getUser();
-                if(!user) throw new Error("Oturum bulunamadı!");
-
-                grid.visible = false; selectionBox.visible = false;
-                composer.render();
-                const thumbBlob = await fetch(renderer.domElement.toDataURL("image/webp", 0.8)).then(r => r.blob());
-                grid.visible = true;
-
-                const exporter = new GLTFExporter();
-                exporter.parse(currentModel, async (buffer) => {
-                    try {
-                        const glbBlob = new Blob([buffer], { type: 'model/gltf-binary' });
-                        await _supabase.storage.from('models').upload(`${name}-thumb.webp`, thumbBlob, { upsert: true, contentType: 'image/webp' });
-                        await _supabase.storage.from('models').upload(`${name}-3d.glb`, glbBlob, { upsert: true, contentType: 'model/gltf-binary' });
-                        
-                        if(variations.length > 0) {
-                            const varBlob = new Blob([JSON.stringify(variations)], { type: "application/json" });
-                            await _supabase.storage.from('models').upload(`${name}-vars.json`, varBlob, { upsert: true, contentType: 'application/json' });
-                        }
-
-                        // DB'ye serial_code ile birlikte kaydet
-                        await _supabase.from('models').insert([{
-                            user_id: user.id,
-                            name: name,
-                            serial_code: serialCode, // Yeni sütuna kayıt
-                            exposure: renderer.toneMappingExposure,
-                            shadow_intensity: 1.0
-                        }]);
-
-                        alert("🎉 " + name + " Başarıyla kütüphaneye eklendi!");
-                        window.location.href = 'dashboard.html';
-                    } catch (innerErr) {
-                        alert("🚨 HATA:\n" + innerErr.message);
-                        document.getElementById('loading-ov').style.display = 'none';
-                    }
-                }, undefined, { binary: true });
-            } catch (err) {
-                alert("🚨 SİSTEM HATASI:\n" + err.message);
-                document.getElementById('loading-ov').style.display = 'none';
-            }
-        };
-
         function animate() {
             requestAnimationFrame(animate);
             if (orbit) orbit.update();
@@ -453,72 +483,6 @@
         }
 
         init();
-
-    // --- DÜZENLEME (EDIT) MODU MANTIĞI ---
-async function checkEditMode() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const editModelName = urlParams.get('edit');
-
-    if (editModelName) {
-        document.getElementById('loading-ov').style.display = 'flex';
-        document.getElementById('loading-text').innerText = "ESKİ VERİLER YÜKLENİYOR...";
-
-        try {
-            // 1. Veritabanından model bilgilerini çek (Seri kodu vb.)
-            const { data: dbData, error: dbError } = await _supabase
-                .from('models')
-                .select('*')
-                .eq('name', editModelName)
-                .single();
-
-            if (dbError) throw dbError;
-
-            // Save modalındaki inputları doldur
-            document.getElementById('save-name').value = dbData.name;
-            document.getElementById('save-name').disabled = true; // İsmi değiştirtmiyoruz (dosya çakışması olmasın)
-            document.getElementById('save-serial').value = dbData.serial_code;
-            if(dbData.exposure) renderer.toneMappingExposure = dbData.exposure;
-
-            // 2. Storage'dan GLB dosyasını yükle
-            const { data: glbData } = _supabase.storage.from('models').getPublicUrl(`${editModelName}-3d.glb`);
-            
-            const loader = new GLTFLoader();
-            const dracoLoader = new DRACOLoader();
-            dracoLoader.setDecoderPath('https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/libs/draco/');
-            loader.setDRACOLoader(dracoLoader);
-
-            loader.load(glbData.publicUrl, (gltf) => {
-                if(currentModel) scene.remove(currentModel);
-                currentModel = gltf.scene;
-                scene.add(currentModel);
-                
-                // Sahneye ortala
-                const box = new THREE.Box3().setFromObject(currentModel);
-                const center = box.getCenter(new THREE.Vector3());
-                currentModel.position.set(-center.x, -box.min.y, -center.z);
-            });
-
-            // 3. Varsa Varyasyonları (.json) yükle
-            try {
-                const { data: jsonRes } = _supabase.storage.from('models').getPublicUrl(`${editModelName}-vars.json`);
-                const response = await fetch(jsonRes.publicUrl + `?t=${Date.now()}`);
-                if (response.ok) {
-                    variations = await response.json();
-                    renderVars();
-                }
-            } catch (e) { console.warn("Varyasyon dosyası bulunamadı."); }
-
-            document.getElementById('loading-ov').style.display = 'none';
-        } catch (err) {
-            console.error("Düzenleme modu hatası:", err);
-            document.getElementById('loading-ov').style.display = 'none';
-        }
-    }
-}
-
-// init() fonksiyonunun en sonuna checkEditMode(); çağrısını ekle.
-// Mevcut init() fonksiyonunun son satırı şöyle olmalı:
-// setupControls(); animate(); checkEditMode();
     </script>
 </body>
 </html>
