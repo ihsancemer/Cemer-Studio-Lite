@@ -398,14 +398,28 @@
                         alert("🚨 YÜKLEME İPTAL EDİLDİ:\n" + innerErr.message);
                         document.getElementById('loading-ov').style.display = 'none';
                     }
-
-                }, { binary: true }); // Hata yakalayıcı fonksiyonu sildik, sadece binary:true bıraktık ki kütüphane sapıtmasın!
+}, 
+                    function (error) { 
+                        alert("🚨 3D DÖNÜŞTÜRME HATASI:\n" + error);
+                        document.getElementById('loading-ov').style.display = 'none';
+                    }, 
+                    { binary: true } 
+                );
 
             } catch (err) {
                 alert("🚨 SİSTEM HATASI:\n" + err.message);
                 document.getElementById('loading-ov').style.display = 'none';
             }
         };
+        // EKSİK OLAN VE SİSTEMİ AYAKTA TUTAN DÖNGÜ
+        function animate() {
+            requestAnimationFrame(animate);
+            if (orbit) orbit.update();
+            if (renderer && scene && camera) renderer.render(scene, camera);
+        }
+
+        // MOTORU ÇALIŞTIR! (Bunu silmişiz, o yüzden sahne yoktu)
+        init();
     </script>
 </body>
 </html>
