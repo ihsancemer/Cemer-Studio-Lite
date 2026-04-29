@@ -28,6 +28,7 @@
             z-index: 10; display: none; font-size: 14px;
             align-items: center; gap: 10px;
             transition: transform 0.2s, background 0.2s;
+            text-decoration: none;
         }
 
         .variant-container {
@@ -94,6 +95,7 @@
         rotation-speed="0.5"
         interpolation-decay="200"
         loading="eager"
+        crossorigin="anonymous"
         alt="Cemer 3D Ürün Modeli">
         
         <button slot="ar-button" class="ar-button" id="ar-trigger">
@@ -104,6 +106,7 @@
 
     <script>
         const params = new URLSearchParams(window.location.search);
+        // ID çekme mantığını sağlamlaştırdık
         const modelId = decodeURIComponent(params.get('model') || params.get('id') || "");
         const mv = document.getElementById('mv');
         const statusOv = document.getElementById('status-ov');
@@ -113,12 +116,15 @@
         if (!modelId) {
             showError("Bağlantı Eksik", "Lütfen geçerli bir ürün linki kullanın.");
         } else {
+            // URL yapılandırmasını kontrol ettik
             const baseUrl = `https://uoqojtynnarfpidrbinj.supabase.co/storage/v1/object/public/models/${modelId}`;
+            
+            // Dosya yolunu konsola yazdır (Hata ayıklama için)
+            console.log("Yüklenen Model Path:", `${baseUrl}-3d.glb`);
             
             mv.src = `${baseUrl}-3d.glb`;
             
-            // APPLE (iOS) İÇİN ÖNEMLİ: ios-src niteliğini kaldırıyoruz.
-            // Bu sayede Apple cihazlar anlık renkli haliyle USDZ üretecek.
+            // iOS için USDZ'yi anlık oluşturması için ios-src'yi boş bırakıyoruz
             mv.removeAttribute('ios-src'); 
 
             loadVariations(`${baseUrl}-vars.json`);
@@ -129,13 +135,15 @@
             });
 
             mv.addEventListener('load', () => {
+                console.log("Model başarıyla yüklendi.");
                 statusOv.style.opacity = '0';
                 setTimeout(() => statusOv.style.display = 'none', 500);
                 document.getElementById('ar-trigger').style.display = 'flex';
             });
 
             mv.addEventListener('error', (e) => {
-                showError("Model Bulunamadı", "Dosya sunucuda mevcut değil.");
+                console.error("Model Viewer Hatası:", e);
+                showError("Model Bulunamadı", `"${modelId}-3d.glb" dosyası sunucuda mevcut değil veya erişim engellendi.`);
             });
         }
 
@@ -144,7 +152,7 @@
                 const response = await fetch(`${url}?t=${Date.now()}`);
                 if (!response.ok) return; 
                 const vars = await response.json();
-                if (vars.length === 0) return;
+                if (!vars || vars.length === 0) return;
                 
                 const container = document.getElementById('variant-list');
                 vars.forEach((v) => {
@@ -154,32 +162,21 @@
                     btn.onclick = () => applyVariation(v.colors, btn);
                     container.appendChild(btn);
                 });
-            } catch (e) { console.warn("Varyasyon yok."); }
+            } catch (e) { console.warn("Varyasyon dosyası yüklenemedi."); }
         }
 
         function applyVariation(colorMap, clickedBtn) {
-            // 1. Buton Aktiflik Durumu
             document.querySelectorAll('.variant-btn').forEach(b => b.classList.remove('active'));
             clickedBtn.classList.add('active');
 
-            const model = mv.model;
-            if (!model) return;
+            if (!mv.model) return;
 
-            // 2. Renkleri Uygula
-            for (const material of model.materials) {
+            // Renkleri model-viewer standartlarına göre uygula
+            for (const material of mv.model.materials) {
                 if (colorMap[material.name]) {
+                    // Kaydedilen [r, g, b, a] dizisini uygula
                     material.pbrMetallicRoughness.setBaseColorFactor(colorMap[material.name]);
                 }
-            }
-
-            // 3. AR MOTORUNU ZORLA GÜNCELLE (Mavi seçince sarı gelmemesi için)
-            if (mv.canActivateAR) {
-                const currentSrc = mv.src;
-                // Modeli milisaniyelik boşaltıp geri yüklüyoruz (Cache temizliği)
-                mv.src = ''; 
-                setTimeout(() => {
-                    mv.src = currentSrc;
-                }, 50);
             }
         }
 
